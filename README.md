@@ -1,4 +1,4 @@
-### 🤖 Repository for DWSim Automation Exercises
+### 🤖 Repository for DWSim Automation Exercises ##
 
 <p align="left">
 <a href="https://github.com/virajdesai0309/DWSim-Automation-Repo"><img src="https://img.shields.io/static/v1?logo=github&label=Originator&message=virajdesai0309&color=ff3300" alt="Last Commit"/></a>
