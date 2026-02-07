@@ -1,0 +1,36 @@
+{
+  "name": "DWSim Development",
+  // Replace "image" with this "build" configuration
+  "build": {
+    // Path to the Dockerfile relative to the devcontainer.json file
+    "dockerfile": "../Dockerfile",
+    // Build context (usually the project root)
+    "context": ".."
+  },
+  "runArgs": [
+    "--net=host",
+    "-e", "DISPLAY=${env:DISPLAY}",
+    "-v", "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+  ],
+
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind"
+  ],
+  "remoteUser": "dwsimuser",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-toolsai.jupyter"
+      ]
+    }
+  },
+  
+  // Optional but helpful: Port for classic Jupyter Lab/Notebook
+  "forwardPorts": [8888],
+  
+  // Post-create command to verify kernel installation
+  "postCreateCommand": "python3 -m ipykernel install --user --name dwsim-python --display-name 'Python (DWSim)' || echo 'Kernel already installed'"
+}

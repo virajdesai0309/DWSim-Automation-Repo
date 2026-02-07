@@ -1,0 +1,8 @@
+pythonnet
+numpy
+jupyter
+ipykernel
+pillow
+# Add other packages here in the future, e.g.:
+# pandas
+# scipy

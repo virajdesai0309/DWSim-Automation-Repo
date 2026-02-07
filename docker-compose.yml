@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  dwsim:
+    build: .
+    container_name: dwsim_gui
+    environment:
+      - DISPLAY=host.docker.internal:0
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+    volumes:
+      # Mounts a folder called 'projects' from the host into the container.
+      # Contributors MUST create this folder next to the docker-compose.yml file.
+      - ./projects:/home/dwsimuser/DWSIM_Projects
+    # Grants the container necessary permissions to interact with the host's GUI system.
+    ipc: host
+    network_mode: host
