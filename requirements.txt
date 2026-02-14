@@ -3,6 +3,7 @@ numpy
 jupyter
 ipykernel
 pillow
+tabulate
 # Add other packages here in the future, e.g.:
 # pandas
 # scipy
