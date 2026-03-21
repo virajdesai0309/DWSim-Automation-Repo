@@ -4,6 +4,8 @@ jupyter
 ipykernel
 pillow
 tabulate
+idaes-pse
+idaes-pse[ui]
 # Add other packages here in the future, e.g.:
 # pandas
 # scipy

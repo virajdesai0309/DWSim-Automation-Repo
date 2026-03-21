@@ -20,6 +20,11 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     python3 \
     python3-pip \
+    build-essential \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev \
+    cmake \
     && ln -s /usr/lib/libgdiplus.so /usr/lib/gdiplus.dll
 
 # 2. Add Microsoft repository for .NET and install .NET runtime
@@ -37,6 +42,10 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
 
+# Install IDAES extensions (solvers, etc.)
+# This will place the extensions in /root/.idaes
+RUN idaes get-extensions
+
 # Download and install DWSIM v9.0.4 for Debian/Ubuntu
 RUN wget https://github.com/DanWBR/dwsim6/releases/download/v9.0.4/dwsim_9.0.4-amd64.deb \
     && gdebi -n dwsim_9.0.4-amd64.deb \
@@ -48,6 +57,11 @@ RUN find /usr/share/dotnet -name "System.Drawing.Common.dll" -exec ln -s {} /usr
 # Create a non-root user for security
 RUN useradd -m -s /bin/bash dwsimuser && \
     usermod -a -G video,dialout dwsimuser
+
+# Copy IDAES extensions from root's home to the user's home and set ownership
+RUN mkdir -p /home/dwsimuser/.idaes && \
+    cp -r /root/.idaes/* /home/dwsimuser/.idaes/ && \
+    chown -R dwsimuser:dwsimuser /home/dwsimuser/.idaes
 
 # Fix permission: allow the newly created dwsimuser to write to DWSim's application data directory
 RUN mkdir -p /usr/local/lib/dwsim/"DWSIM Application Data" && \
