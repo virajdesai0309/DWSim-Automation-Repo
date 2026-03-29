@@ -42,6 +42,9 @@ from chemicals.identifiers import MW
 from chemicals.vapor_pressure import Psat_data_AntoinePoling
 from chemicals.volume import rho_data_Perry_8E_105_l
 
+# Import DIPPR vapor pressure correlation
+from perry import Dippr101
+
 # Set up logger
 _log = idaeslog.getLogger(__name__)
 
@@ -151,7 +154,7 @@ configuration = {
             "enth_mol_liq_comp": Perrys,
             "enth_mol_ig_comp": RPP5,
             "entr_mol_ig_comp": RPP5,
-            "pressure_sat_comp": RPP5,
+            "pressure_sat_comp": Dippr101,
             "phase_equilibrium_form": {("Vap", "Liq"): fugacity},
             "parameter_data": {
                 "mw": (chemicals.identifiers.MW(ID="124-38-9") / 1000, pyunits.kg / pyunits.mol),
@@ -183,9 +186,11 @@ configuration = {
                 "entr_mol_form_liq_comp_ref": (chemicals.reaction.S0l(CASRN="124-38-9"), pyunits.J / pyunits.mol / pyunits.K),
                 "entr_mol_form_vap_comp_ref": (chemicals.reaction.S0g(CASRN="124-38-9"), pyunits.J / pyunits.mol / pyunits.K),
                 "pressure_sat_comp_coeff": {
-                    "A": (chemicals.vapor_pressure.Psat_data_AntoinePoling.loc["124-38-9"][1], None),
-                    "B": (chemicals.vapor_pressure.Psat_data_AntoinePoling.loc["124-38-9"][2], pyunits.K),
-                    "C": (chemicals.vapor_pressure.Psat_data_AntoinePoling.loc["124-38-9"][3], pyunits.K),
+                    "A": (chemicals.vapor_pressure.Psat_data_Perrys2_8.loc["124-38-9"][1], None),
+                    "B": (chemicals.vapor_pressure.Psat_data_Perrys2_8.loc["124-38-9"][2], pyunits.K),
+                    "C": (chemicals.vapor_pressure.Psat_data_Perrys2_8.loc["124-38-9"][3], None),
+                    "D": (chemicals.vapor_pressure.Psat_data_Perrys2_8.loc["124-38-9"][4], None),
+                    "E": (chemicals.vapor_pressure.Psat_data_Perrys2_8.loc["124-38-9"][5], None),
                 },
             },
         },
@@ -203,11 +208,11 @@ configuration = {
                 "pressure_crit": (chemicals.critical.Pc(CASRN="7732-18-5"), pyunits.Pa),
                 "temperature_crit": (chemicals.critical.Tc(CASRN="7732-18-5"), pyunits.K),
                 "dens_mol_liq_comp_coeff": {
-                    "eqn_type": 1,
-                    "1": (chemicals.volume.rho_data_Perry_8E_105_l.loc["7732-18-5"][1] / 1000, pyunits.kmol * pyunits.m**-3),
-                    "2": (chemicals.volume.rho_data_Perry_8E_105_l.loc["7732-18-5"][2], None),
-                    "3": (chemicals.volume.rho_data_Perry_8E_105_l.loc["7732-18-5"][3], pyunits.K),
-                    "4": (chemicals.volume.rho_data_Perry_8E_105_l.loc["7732-18-5"][4], None),
+                    "eqn_type": 2,
+                    "1": (5.459, pyunits.kmol * pyunits.m**-3),
+                    "2": (0.30542, None),
+                    "3": (647.13, pyunits.K),
+                    "4": (0.081, None),
                 },
                 "cp_mol_ig_comp_coeff": {
                     "a0": (Cp_data_Poling.loc["7732-18-5"][3], None),
@@ -217,11 +222,11 @@ configuration = {
                     "a4": (Cp_data_Poling.loc["7732-18-5"][7], pyunits.J / pyunits.mol / pyunits.K**-4),
                 },
                 "cp_mol_liq_comp_coeff": {
-                    "1": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7732-18-5"][1], pyunits.J / pyunits.kmol / pyunits.K),
-                    "2": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7732-18-5"][2], pyunits.J / pyunits.kmol / pyunits.K**2),
-                    "3": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7732-18-5"][3], pyunits.J / pyunits.kmol / pyunits.K**3),
-                    "4": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7732-18-5"][4], pyunits.J / pyunits.kmol / pyunits.K**4),
-                    "5": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7732-18-5"][5], pyunits.J / pyunits.kmol / pyunits.K**5),
+                    "1": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7732-18-5"][1], pyunits.J / pyunits.kmol / pyunits.K),
+                    "2": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7732-18-5"][2], pyunits.J / pyunits.kmol / pyunits.K**2),
+                    "3": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7732-18-5"][3], pyunits.J / pyunits.kmol / pyunits.K**3),
+                    "4": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7732-18-5"][4], pyunits.J / pyunits.kmol / pyunits.K**4),
+                    "5": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7732-18-5"][5], pyunits.J / pyunits.kmol / pyunits.K**5),
                 },
                 "enth_mol_form_liq_comp_ref": (chemicals.reaction.Hfl(CASRN="7732-18-5"), pyunits.J / pyunits.mol),
                 "enth_mol_form_vap_comp_ref": (chemicals.reaction.Hfg(CASRN="7732-18-5"), pyunits.J / pyunits.mol),
@@ -244,7 +249,7 @@ configuration = {
             "pressure_sat_comp": RPP5,
             "phase_equilibrium_form": {("Vap", "Liq"): fugacity},
             "parameter_data": {
-                "mw": (chemicals.identifiers.MW(CASRN="7727-37-9") / 1000, pyunits.kg / pyunits.mol),
+                "mw": (chemicals.identifiers.MW(ID="7727-37-9") / 1000, pyunits.kg / pyunits.mol),
                 "pressure_crit": (chemicals.critical.Pc(CASRN="7727-37-9"), pyunits.Pa),
                 "temperature_crit": (chemicals.critical.Tc(CASRN="7727-37-9"), pyunits.K),
                 "dens_mol_liq_comp_coeff": {
@@ -262,15 +267,15 @@ configuration = {
                     "a4": (Cp_data_Poling.loc["7727-37-9"][7], pyunits.J / pyunits.mol / pyunits.K**-4),
                 },
                 "cp_mol_liq_comp_coeff": {
-                    "1": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7727-37-9"][1], pyunits.J / pyunits.kmol / pyunits.K),
-                    "2": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7727-37-9"][2], pyunits.J / pyunits.kmol / pyunits.K**2),
-                    "3": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7727-37-9"][3], pyunits.J / pyunits.kmol / pyunits.K**3),
-                    "4": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7727-37-9"][4], pyunits.J / pyunits.kmol / pyunits.K**4),
-                    "5": (chemicals.heat_capacity.Cp_data_Perry_Table_153_114.loc["7727-37-9"][5], pyunits.J / pyunits.kmol / pyunits.K**5),
+                    "1": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7727-37-9"][1], pyunits.J / pyunits.kmol / pyunits.K),
+                    "2": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7727-37-9"][2], pyunits.J / pyunits.kmol / pyunits.K**2),
+                    "3": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7727-37-9"][3], pyunits.J / pyunits.kmol / pyunits.K**3),
+                    "4": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7727-37-9"][4], pyunits.J / pyunits.kmol / pyunits.K**4),
+                    "5": (chemicals.heat_capacity.Cp_data_Perry_Table_153_100.loc["7727-37-9"][5], pyunits.J / pyunits.kmol / pyunits.K**5),
                 },
-                "enth_mol_form_liq_comp_ref": (chemicals.reaction.Hfl(CASRN="7727-37-9"), pyunits.J / pyunits.mol),
+                "enth_mol_form_liq_comp_ref": (0, pyunits.J / pyunits.mol),
                 "enth_mol_form_vap_comp_ref": (chemicals.reaction.Hfg(CASRN="7727-37-9"), pyunits.J / pyunits.mol),
-                "entr_mol_form_liq_comp_ref": (chemicals.reaction.S0l(CASRN="7727-37-9"), pyunits.J / pyunits.mol / pyunits.K),
+                "entr_mol_form_liq_comp_ref": (0, pyunits.J / pyunits.mol / pyunits.K),
                 "entr_mol_form_vap_comp_ref": (chemicals.reaction.S0g(CASRN="7727-37-9"), pyunits.J / pyunits.mol / pyunits.K),
                 "pressure_sat_comp_coeff": {
                     "A": (chemicals.vapor_pressure.Psat_data_AntoinePoling.loc["7727-37-9"][1], None),
