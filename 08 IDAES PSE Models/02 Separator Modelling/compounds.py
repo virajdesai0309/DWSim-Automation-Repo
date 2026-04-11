@@ -46,7 +46,7 @@ from chemicals import acentric
 from chemicals import reaction
 
 class RPP5_Safe(object):
-    class enth_mol_ig_comp:
+    class cp_mol_ig_comp:
         @staticmethod
         def build_parameters(cobj):
             cobj.cp_mol_ig_comp_coeff_a0 = Var(
@@ -93,7 +93,7 @@ class RPP5_Safe(object):
             )
 
             units = b.params.get_metadata().derived_units
-            return pyunits.convert(cp, units.HEAT_CAPACITY_MOLE)
+            return pyunits.convert(cp, to_units=units.HEAT_CAPACITY_MOLE)
 
     class enth_mol_ig_comp:
         @staticmethod
@@ -101,7 +101,7 @@ class RPP5_Safe(object):
             if not hasattr(cobj, "cp_mol_ig_comp_coeff_a0"):
                 RPP5_Safe.cp_mol_ig_comp.build_parameters(cobj)
             
-            if cobj.parent_block().config.include_enthalpy_of_formation:
+            if hasattr(cobj.parent_block().config, "include_enthalpy_of_formation") and cobj.parent_block().config.include_enthalpy_of_formation:
                 units = cobj.parent_block().get_metadata().derived_units
 
                 cobj.enth_mol_form_vap_comp_ref = Var(
@@ -120,22 +120,18 @@ class RPP5_Safe(object):
             
             h_form = (
                 cobj.enth_mol_form_vap_comp_ref
-                if b.params.include_enthalpy_of_formation
+                if hasattr(b.params, "include_enthalpy_of_formation") and b.params.include_enthalpy_of_formation
                 else 0 * units.ENERGY_MOLE
             )
 
             h = (
                 pyunits.convert(
                     (cobj.cp_mol_ig_comp_coeff_a4 / 5) * (T**5 - Tr**5)
-                    + 
-                    (cobj.cp_mol_ig_comp_coeff_a3 / 4) * (T**4 - Tr**4)
-                    +
-                    (cobj.cp_mol_ig_comp_coeff_a2 / 3) * (T**3 - Tr**3)
-                    +
-                    (cobj.cp_mol_ig_comp_coeff_a1 / 2) * (T**2 - Tr**2)
-                    +
-                    cobj.cp_mol_ig_comp_coeff_a0 * (T - Tr),
-                    units.ENERGY_MOLE,
+                    + (cobj.cp_mol_ig_comp_coeff_a3 / 4) * (T**4 - Tr**4)
+                    + (cobj.cp_mol_ig_comp_coeff_a2 / 3) * (T**3 - Tr**3)
+                    + (cobj.cp_mol_ig_comp_coeff_a1 / 2) * (T**2 - Tr**2)
+                    + cobj.cp_mol_ig_comp_coeff_a0 * (T - Tr),
+                    to_units=units.ENERGY_MOLE,
                 )
                 + h_form
             )
@@ -151,7 +147,7 @@ class RPP5_Safe(object):
 
             cobj.entr_mol_form_vap_comp_ref = Var(
                 doc = "Vapor phase molar entropy of formation @ Tref",
-                units = units.ENERGY_MOLE,
+                units = units.ENTROPY_MOLE,
             )
 
             set_param_from_config(cobj, param = "entr_mol_form_vap_comp_ref")
@@ -169,9 +165,9 @@ class RPP5_Safe(object):
                     (cobj.cp_mol_ig_comp_coeff_a4 / 4) * (T**4 - Tr**4)
                     + (cobj.cp_mol_ig_comp_coeff_a3 / 3) * (T**3 - Tr**3)
                     + (cobj.cp_mol_ig_comp_coeff_a2 / 2) * (T**2 - Tr**2)
-                    + cobj.cp_mol_ig_comp_coeff_a1 * (T - Tr),
+                    + cobj.cp_mol_ig_comp_coeff_a1 * (T - Tr)
                     + cobj.cp_mol_ig_comp_coeff_a0 * log(T / Tr),
-                    units.ENTROPY_MOLE,
+                    to_units=units.ENTROPY_MOLE,
                 )
             )
             return s
@@ -187,7 +183,7 @@ configuration = {
             "enth_mol_ig_comp": RPP5_Safe,
             "entr_mol_ig_comp": RPP5_Safe,
             "pressure_sat_comp": RPP5,
-            "valid_phase_types": {("Vap", "Liq"): log_fugacity},
+            "phase_equilibrium_form": {("Vap", "Liq"): log_fugacity},
             "parameter_data": {
                 "mw": (identifiers.MW("74-82-8") / 1000, pyunits.kg / pyunits.mol),
                 "pressure_crit": (critical.Pc("74-82-8"), pyunits.Pa),
@@ -218,9 +214,9 @@ configuration = {
                 "entr_mol_form_vap_comp_ref": (reaction.S0g("74-82-8") or 0, pyunits.J / pyunits.mol / pyunits.K),
                 "enth_mol_form_vap_comp_ref": (reaction.Hfg("74-82-8") or 0, pyunits.J / pyunits.mol),
                 "pressure_sat_comp_coeff": {
-                    "A" : (vapor_pressure.Psat_data_AntoinePoling.loc["74-82-8"].iloc[1] + 5, None),
-                    "B" : (vapor_pressure.Psat_data_AntoinePoling.loc["74-82-8"].iloc[2], pyunits.K),
-                    "C" : (vapor_pressure.Psat_data_AntoinePoling.loc["74-82-8"].iloc[3] + 273.15, pyunits.K)
+                    "A" : (vapor_pressure.Psat_data_AntoinePoling.loc["74-82-8"].iloc[1] * 2.302585092994046 + 11.512925464970229, None),
+                    "B" : (vapor_pressure.Psat_data_AntoinePoling.loc["74-82-8"].iloc[2] * 2.302585092994046, pyunits.K),
+                    "C" : (vapor_pressure.Psat_data_AntoinePoling.loc["74-82-8"].iloc[3], pyunits.K),
                 },
             },
         },
@@ -263,9 +259,9 @@ configuration = {
                 "entr_mol_form_vap_comp_ref": (reaction.S0g("74-84-0") or 0, pyunits.J / pyunits.mol / pyunits.K),
                 "enth_mol_form_vap_comp_ref": (reaction.Hfg("74-84-0") or 0, pyunits.J / pyunits.mol),
                 "pressure_sat_comp_coeff": {
-                    "A": (vapor_pressure.Psat_data_AntoinePoling.loc["74-84-0"].iloc[1] + 5, None),
-                    "B": (vapor_pressure.Psat_data_AntoinePoling.loc["74-84-0"].iloc[2], pyunits.K),
-                    "C": (vapor_pressure.Psat_data_AntoinePoling.loc["74-84-0"].iloc[3] + 273.15, pyunits.K),
+                    "A": (vapor_pressure.Psat_data_AntoinePoling.loc["74-84-0"].iloc[1] * 2.302585092994046 + 11.512925464970229, None),
+                    "B": (vapor_pressure.Psat_data_AntoinePoling.loc["74-84-0"].iloc[2] * 2.302585092994046, pyunits.K),
+                    "C": (vapor_pressure.Psat_data_AntoinePoling.loc["74-84-0"].iloc[3], pyunits.K),
                 },
             },
         },

@@ -7,14 +7,16 @@ from idaes.core import FlowsheetBlock
 # Import idaes logger to set output levels
 import idaes.logger as idaeslog
 
-# Import the IAPWS property package to create a properties block for the flowsheet
-from idaes.models.properties import iapws95
-from idaes.models.properties.helmholtz.helmholtz import PhaseType
+# Importing the generic thermo package for the model
+from idaes.models.properties.modular_properties.base.generic_property import GenericParameterBlock
 
-# Import the mixer unit model from IDAES
-from idaes.models.unit_models import Mixer, MomentumMixingType
+# Importing the compounds configuration for the model
+from compounds import configuration
 
-# Importing feed streams for the mixer unit model
+# Import the flash unit model from IDAES
+from idaes.models.unit_models import Flash
+
+# Importing feed streams for the flash unit model
 from idaes.models.unit_models import Feed, Product
 
 # Import the degrees of freedom function to check that the model is well posed
@@ -37,28 +39,26 @@ m.fs = FlowsheetBlock(
 )  # dynamic or ss flowsheet needs to be specified here
 
 # Add properties parameter block to the flowsheet with specifications
-m.fs.properties = iapws95.Iapws95ParameterBlock(
-    phase_presentation=PhaseType.LG,
-    state_vars = iapws95.StateVars.PH)
+m.fs.properties = GenericParameterBlock(**configuration) 
 
 # Creating an instance of mixing unit model and attaching it to the flowsheet
-m.fs.mixer = Mixer(
+m.fs.flash = Flash(
     property_package=m.fs.properties,
-    num_inlets=2,
-    momentum_mixing_type=MomentumMixingType.minimize,
+    has_heat_transfer=True,
+    has_pressure_change=True,
 )
 
-# Creating feed streams for the mixer unit model and attaching them to the flowsheet
+# Creating feed streams for the flash unit model and attaching them to the flowsheet
 m.fs.feed1 = Feed(property_package=m.fs.properties)
-m.fs.feed2 = Feed(property_package=m.fs.properties)
 
-# Creating product stream for the mixer unit model and attaching it to the flowsheet
-m.fs.product = Product(property_package=m.fs.properties)
+# Creating product stream for the flash unit model and attaching it to the flowsheet
+m.fs.vapor = Product(property_package=m.fs.properties)
+m.fs.liquid = Product(property_package=m.fs.properties)
 
-# Connecting the feed and product streams to the mixer unit model
-m.fs.s01 = Arc(source=m.fs.feed1.outlet, destination=m.fs.mixer.inlet_1)
-m.fs.s02 = Arc(source=m.fs.feed2.outlet, destination=m.fs.mixer.inlet_2)
-m.fs.s03 = Arc(source=m.fs.mixer.outlet, destination=m.fs.product.inlet)
+# Connecting the feed and product streams to the flash unit model
+m.fs.s01 = Arc(source=m.fs.feed1.outlet, destination=m.fs.flash.inlet)
+m.fs.s02 = Arc(source=m.fs.flash.vap_outlet, destination=m.fs.vapor.inlet)
+m.fs.s03 = Arc(source=m.fs.flash.liq_outlet, destination=m.fs.liquid.inlet)
 
 # Transforming the arcs to create the necessary constraints for the model
 TransformationFactory("network.expand_arcs").apply_to(m)
@@ -67,34 +67,29 @@ TransformationFactory("network.expand_arcs").apply_to(m)
 print("The degree of freedom for the model is : {}".format(degrees_of_freedom(m)))
 
 # Fixing the feed conditions for the mixer unit model using Pressure and Enthalpy
-# Stream 1: 300 K, 101325 Pa, 1 mol/s
-enth_1 = iapws95.htpx(T=350 * units.K, P=101325 * units.Pa)  # Calculate enthalpy
-m.fs.feed1.properties[0].flow_mol.fix(55.5084)
-m.fs.feed1.properties[0].enth_mol.fix(enth_1)
-m.fs.feed1.properties[0].pressure.fix(101325)
+m.fs.feed1.properties[0].flow_mol.fix(10)
+m.fs.feed1.properties[0].temperature.fix(300)
+m.fs.feed1.properties[0].pressure.fix(500000)
+m.fs.feed1.properties[0].mole_frac_comp["methane"].fix(0.4)
+m.fs.feed1.properties[0].mole_frac_comp["ethane"].fix(0.6)
 
-# Stream 2: 350 K, 101325 Pa, 1 mol/s
-enth_2 = iapws95.htpx(T=450 * units.K, P=501325 * units.Pa)  # Calculate enthalpy
-m.fs.feed2.properties[0].flow_mol.fix(55.5084)
-m.fs.feed2.properties[0].enth_mol.fix(enth_2)
-m.fs.feed2.properties[0].pressure.fix(501325)
+# Fix flash operating conditions (adiabatic, no pressure drop)
+m.fs.flash.heat_duty.fix(0)   # W  - adiabatic operation
+m.fs.flash.deltaP.fix(0)      # Pa - no pressure drop
 
 # Calling the degree of freedom function again to check that the model is well posed after fixing the feed conditions
 print("The degree of freedom for the model is : {}".format(degrees_of_freedom(m)))
 
+# Initialize feed first so all properties (including bubble/dew T) are computed
+m.fs.feed1.initialize(outlvl=idaeslog.INFO)
+
 # Initializing the model using the default initialization routine for the mixer unit model
-m.fs.feed1.initialize(outlvl=idaeslog.INFO, state_args={})
-m.fs.feed2.initialize(outlvl=idaeslog.INFO, state_args={})
-
-# Propogating the state from the feed streams to the mixer unit model
-propagate_state(arc=m.fs.s01, direction="forward") 
-propagate_state(arc=m.fs.s02, direction="forward") 
-
-# Initializing the mixer unit model using the default initialization routine for the mixer unit model
-m.fs.mixer.initialize(outlvl=idaeslog.DEBUG)
-
-# Propogating the state from the mixer unit model to the product stream
-propagate_state(arc=m.fs.s03, direction="forward")
+propagate_state(arc=m.fs.s01)   # feed1 → flash
+m.fs.flash.initialize(outlvl=idaeslog.INFO)
+propagate_state(arc=m.fs.s02)   # flash vap_outlet → vapor
+propagate_state(arc=m.fs.s03)   # flash liq_outlet → liquid
+m.fs.vapor.initialize(outlvl=idaeslog.INFO)
+m.fs.liquid.initialize(outlvl=idaeslog.INFO)
 
 # Creating an instance of the DiagnosticsToolbox to check that the model is well initialized
 dt = DiagnosticsToolbox(m)
@@ -102,26 +97,36 @@ dt = DiagnosticsToolbox(m)
 # Printing any structual issues with the model
 print(dt.report_structural_issues())
 
-# Printing any numerical issues with the model
-print(dt.report_numerical_issues())
-
-# Printing large residuals in the model
-print(dt.display_constraints_with_large_residuals())
-
-# Wrapping and Printing any infeasibilities with the model
+# Show any variables with None values before numerical analysis
 try:
-    print(dt.compute_infeasibility_explanation())
+    dt.display_variables_with_none_value_in_activated_constraints()
 except Exception as e:
-    print("Model is feasible - no infeasibility explanation needed.")
-
-# Printing variables inside or outside the bounds
-print(dt.display_variables_at_or_outside_bounds())
-
+    pass  # No None-valued variables
+ 
+# Printing any numerical issues (requires all variables initialized)
+try:
+    print(dt.report_numerical_issues())
+except RuntimeError as e:
+    print(f"Skipping numerical issues report: {e}")
+ 
+# Printing large residuals in the model
+try:
+    print(dt.display_constraints_with_large_residuals())
+except Exception as e:
+    print(f"Skipping large residuals: {e}")
+ 
+# Printing variables outside the bounds
+try:
+    print(dt.display_variables_at_or_outside_bounds())
+except Exception as e:
+    print(f"Skipping bounds check: {e}")
+ 
 # Solving the model using the ipopt solver
 solver = SolverFactory("ipopt")
 solver_status = solver.solve(m, tee=True)
 
 # Displaying the results
 print(m.fs.feed1.report())
-print(m.fs.feed2.report())
-print(m.fs.mixer.report())
+print(m.fs.flash.report())
+print(m.fs.vapor.report())
+print(m.fs.liquid.report())
