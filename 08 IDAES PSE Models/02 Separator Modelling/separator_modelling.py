@@ -67,11 +67,11 @@ TransformationFactory("network.expand_arcs").apply_to(m)
 print("The degree of freedom for the model is : {}".format(degrees_of_freedom(m)))
 
 # Fixing the feed conditions for the mixer unit model using Pressure and Enthalpy
-m.fs.feed1.properties[0].flow_mol.fix(10)
+m.fs.feed1.properties[0].flow_mol.fix(43.3731)
 m.fs.feed1.properties[0].temperature.fix(300)
-m.fs.feed1.properties[0].pressure.fix(500000)
-m.fs.feed1.properties[0].mole_frac_comp["methane"].fix(0.4)
-m.fs.feed1.properties[0].mole_frac_comp["ethane"].fix(0.6)
+m.fs.feed1.properties[0].pressure.fix(101325)
+m.fs.feed1.properties[0].mole_frac_comp["methane"].fix(0.5)
+m.fs.feed1.properties[0].mole_frac_comp["ethane"].fix(0.5)
 
 # Fix flash operating conditions (adiabatic, no pressure drop)
 m.fs.flash.heat_duty.fix(0)   # W  - adiabatic operation

@@ -39,5 +39,9 @@ ethane_ideal_gas_heat_capacity = heat_capacity.Cp_data_Poling.loc[ethane]
 print(ethane_ideal_gas_heat_capacity)
 
 '''
-ethane_vapor_pressure = vapor_pressure.Psat_data_AntoinePoling.loc[ethane].iloc[3]
+methane_vapor_pressure = vapor_pressure.Psat_data_AntoinePoling.loc[methane]
+print(methane_vapor_pressure)
+
+ethane_vapor_pressure = vapor_pressure.Psat_data_AntoinePoling.loc[ethane]
 print(ethane_vapor_pressure)
+
