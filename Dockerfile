@@ -5,6 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # 1. Install system dependencies and Python/pip
 RUN apt-get update && apt-get install -y \
     wget \
+    curl \
     gdebi-core \
     git \
     libgtk2.0-0 \
@@ -66,7 +67,7 @@ RUN mkdir -p /home/dwsimuser/.idaes && \
 # Fix permission: allow the newly created dwsimuser to write to DWSim's application data directory
 RUN mkdir -p /usr/local/lib/dwsim/"DWSIM Application Data" && \
     chown -R dwsimuser:dwsimuser /usr/local/lib/dwsim/"DWSIM Application Data"
-    
+
 USER dwsimuser
 WORKDIR /home/dwsimuser
 
