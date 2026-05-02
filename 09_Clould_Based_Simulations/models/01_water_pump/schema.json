@@ -1,0 +1,89 @@
+{
+  "flowchart": {
+    "nodes": [
+      { "id": "stream_in",  "type": "stream",    "label": "Stream 1" },
+      { "id": "pump",       "type": "equipment", "label": "PUMP-1"   },
+      { "id": "stream_out", "type": "stream",    "label": "Stream 2" }
+    ],
+    "connections": [
+      { "from": "stream_in", "to": "pump"       },
+      { "from": "pump",      "to": "stream_out" }
+    ]
+  },
+  "inputs": [
+    {
+      "id": "mass_flow",
+      "label": "Inlet mass flow rate",
+      "unit": "kg/s",
+      "type": "float",
+      "default": 1.0,
+      "min": 0.01,
+      "max": 1000.0,
+      "description": "Mass flow rate of water entering the pump",
+      "node": "stream_in"
+    },
+    {
+      "id": "temperature",
+      "label": "Inlet temperature",
+      "unit": "K",
+      "type": "float",
+      "default": 300.0,
+      "min": 273.15,
+      "max": 500.0,
+      "description": "Temperature of the inlet stream",
+      "node": "stream_in"
+    },
+    {
+      "id": "pressure",
+      "label": "Inlet pressure",
+      "unit": "Pa",
+      "type": "float",
+      "default": 101325.0,
+      "min": 1000.0,
+      "max": 10000000.0,
+      "description": "Absolute pressure at pump inlet",
+      "node": "stream_in"
+    },
+    {
+      "id": "outlet_pressure",
+      "label": "Desired outlet pressure",
+      "unit": "Pa",
+      "type": "float",
+      "default": 301325.0,
+      "min": 1000.0,
+      "max": 10000000.0,
+      "description": "Target absolute pressure at pump outlet",
+      "node": "pump"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "mass_flow_out",
+      "label": "Outlet mass flow rate",
+      "unit": "kg/s",
+      "description": "Mass flow rate of water leaving the pump",
+      "node": "stream_out"
+    },
+    {
+      "id": "temperature_out",
+      "label": "Outlet temperature",
+      "unit": "K",
+      "description": "Temperature at pump outlet (rises slightly due to compression)",
+      "node": "stream_out"
+    },
+    {
+      "id": "pressure_out",
+      "label": "Outlet pressure",
+      "unit": "Pa",
+      "description": "Actual pressure at pump outlet",
+      "node": "stream_out"
+    },
+    {
+      "id": "power_consumed",
+      "label": "Shaft power consumed",
+      "unit": "W",
+      "description": "Mechanical power required to drive the pump",
+      "node": "pump"
+    }
+  ]
+}
