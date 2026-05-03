@@ -536,8 +536,8 @@ function renderCanvas() {
   const PADDING  = 120;
 
   worldW = PADDING * 2 + (N - 1) * NODE_GAP;
-  worldH = 400;
-  const cy = worldH / 2;
+  worldH = 460;
+  const cy = worldH / 2 + 20; // shift center down to give room for result labels above
 
   const pos = {};
   nodes.forEach((n, i) => {
@@ -591,22 +591,26 @@ function renderCanvas() {
       const lbl = ms('text', { class:'node-label', x:p.x, y:p.y - STREAM_R - 14 });
       lbl.textContent = n.label; g.appendChild(lbl);
 
-      // Input hints below node
+      // ── Result labels ABOVE the node (green, hidden until simulate) ──
+      // Anchored upward from just above the glow ring
+      const RES_TOP_S = p.y - STREAM_R - 28;
+      no.forEach((f, fi) => {
+        const rl = ms('text', { class:'result-value-label', id:`rvl-${f.id}`,
+          x:p.x, y: RES_TOP_S - (no.length - 1 - fi) * 14 });
+        rl.textContent = ''; g.appendChild(rl);
+      });
+
+      // ── Input hints BELOW the node (grey, always visible) ──
+      const INP_TOP_S = p.y + STREAM_R + 18;
       ni.slice(0,3).forEach((f, fi) => {
-        const h = ms('text', { class:'node-sublabel', x:p.x, y:p.y + STREAM_R + 18 + fi*14, 'data-field':f.id });
+        const h = ms('text', { class:'node-sublabel', x:p.x, y: INP_TOP_S + fi*14, 'data-field':f.id });
         h.textContent = fmtHint(f, inputValues[f.id]); g.appendChild(h);
       });
       if (ni.length > 0) {
-        const ch = ms('text', { class:'click-hint', x:p.x, y:p.y + STREAM_R + 18 + Math.min(ni.length,3)*14 + 4 });
+        const ch = ms('text', { class:'click-hint', x:p.x, y: INP_TOP_S + Math.min(ni.length,3)*14 + 4 });
         ch.textContent = '[ click to edit ]'; g.appendChild(ch);
         g.addEventListener('click', () => openPopup(n, ni));
       }
-
-      // Result labels (hidden until results)
-      no.forEach((f, fi) => {
-        const rl = ms('text', { class:'result-value-label', id:`rvl-${f.id}`, x:p.x, y:p.y + STREAM_R + 18 + fi*14 });
-        rl.textContent = ''; g.appendChild(rl);
-      });
 
     } else {
       // Equipment
@@ -622,22 +626,37 @@ function renderCanvas() {
       const lbl = ms('text', { class:'node-label', x:p.x, y:p.y - EQUIP_R - 14 });
       lbl.textContent = n.label; g.appendChild(lbl);
 
-      // Input hints below
+      // ── Result labels ABOVE the node (green, hidden until simulate) ──
+      // Stacked upward from just above the label
+      const RES_TOP_E = p.y - EQUIP_R - 28;
+      no.forEach((f, fi) => {
+        const rl = ms('text', { class:'result-value-label', id:`rvl-${f.id}`,
+          x:p.x, y: RES_TOP_E - (no.length - 1 - fi) * 14 });
+        rl.textContent = ''; g.appendChild(rl);
+      });
+
+      // Separator line between result zone and label (only shown after simulate, via CSS)
+      const sep = ms('line', {
+        id: `sep-${n.id}`,
+        x1: p.x - 44, y1: p.y - EQUIP_R - 6,
+        x2: p.x + 44, y2: p.y - EQUIP_R - 6,
+        stroke: '#2a3040', 'stroke-width': 1,
+        'stroke-dasharray': '3 3', opacity: 0,
+        'pointer-events': 'none'
+      });
+      g.appendChild(sep);
+
+      // ── Input hints BELOW the node (grey, always visible) ──
+      const INP_TOP_E = p.y + EQUIP_R + 18;
       ni.slice(0,2).forEach((f, fi) => {
-        const h = ms('text', { class:'node-sublabel', x:p.x, y:p.y + EQUIP_R + 18 + fi*14, 'data-field':f.id });
+        const h = ms('text', { class:'node-sublabel', x:p.x, y: INP_TOP_E + fi*14, 'data-field':f.id });
         h.textContent = fmtHint(f, inputValues[f.id]); g.appendChild(h);
       });
       if (ni.length > 0) {
-        const ch = ms('text', { class:'click-hint', x:p.x, y:p.y + EQUIP_R + 18 + Math.min(ni.length,2)*14 + 4 });
+        const ch = ms('text', { class:'click-hint', x:p.x, y: INP_TOP_E + Math.min(ni.length,2)*14 + 4 });
         ch.textContent = '[ click to edit ]'; g.appendChild(ch);
         g.addEventListener('click', () => openPopup(n, ni));
       }
-
-      // Result labels
-      no.forEach((f, fi) => {
-        const rl = ms('text', { class:'result-value-label', id:`rvl-${f.id}`, x:p.x, y:p.y + EQUIP_R + 18 + fi*14 });
-        rl.textContent = ''; g.appendChild(rl);
-      });
     }
 
     svg.appendChild(g);
@@ -753,6 +772,7 @@ function renderResults(data) {
 }
 
 function updateFlowchartResults(outputs) {
+  // Reveal result labels above nodes
   activeModel.schema.outputs.forEach(f => {
     const el = document.getElementById(`rvl-${f.id}`);
     if (el) {
@@ -760,6 +780,19 @@ function updateFlowchartResults(outputs) {
       el.textContent = `${short}: ${fmtVal(outputs[f.id])} ${f.unit}`;
       el.classList.add('visible');
     }
+  });
+  // Reveal separator lines on equipment nodes that have outputs
+  const equipNodes = [...new Set(
+    activeModel.schema.outputs
+      .map(f => f.node)
+      .filter(nid => {
+        const node = activeModel.schema.flowchart.nodes.find(n => n.id === nid);
+        return node && node.type === 'equipment';
+      })
+  )];
+  equipNodes.forEach(nid => {
+    const sep = document.getElementById(`sep-${nid}`);
+    if (sep) sep.setAttribute('opacity', 1);
   });
 }
 
