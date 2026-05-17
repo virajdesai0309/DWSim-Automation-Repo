@@ -84,23 +84,31 @@ HOT_OUT  = sim.GetObject("Hot Out").GetAsObject()
 Settings.SolverMode = 0
 
 # ---------------------------------------------------------------------------
-# 3. Parameter sweep definition
+# 3. Latin Hypercube Sampling (LHS) definition
 # ---------------------------------------------------------------------------
-# Adjust these ranges to match your physical system.
-# Keep ranges wide enough for ANN generalisation but physically sensible.
+import scipy.stats.qmc as qmc
 
-cold_inlet_temps  = np.arange(288.15, 318.15, 5.0)   # 15–45 °C  → K
-cold_mass_flows   = np.arange(0.5,    5.5,    0.5)   # kg/s
-hot_inlet_temps   = np.arange(333.15, 373.15, 5.0)   # 60–100 °C → K
-hot_mass_flows    = np.arange(0.5,    5.5,    0.5)   # kg/s
+# Define bounds for each input variable (physical ranges)
+# [cold_inlet_temp, cold_mass_flow, hot_inlet_temp, hot_mass_flow]
+bounds = np.array([
+    [288.15, 318.15],   # cold_inlet_temp (K)
+    [0.5,    5.5  ],    # cold_mass_flow (kg/s)
+    [333.15, 373.15],   # hot_inlet_temp (K)
+    [0.5,    5.5  ]     # hot_mass_flow (kg/s)
+])
 
-param_grid = list(itertools.product(
-    cold_inlet_temps, cold_mass_flows,
-    hot_inlet_temps,  hot_mass_flows
-))
+# Number of desired samples (increase from 4751 to e.g., 15000)
+N_SAMPLES = 30000  # you can change to 10000, 20000 etc.
 
-total_cases = len(param_grid)
-print(f"Total simulation cases: {total_cases}")
+sampler = qmc.LatinHypercube(d=4, seed=42)
+lhs_samples = sampler.random(n=N_SAMPLES)  # values in [0,1)
+# Scale to physical ranges
+X_lhs = qmc.scale(lhs_samples, bounds[:,0], bounds[:,1])
+
+# Convert to list for iteration
+cases = X_lhs.tolist()
+total_cases = len(cases)
+print(f"Total simulation cases (LHS): {total_cases}")
 
 # ---------------------------------------------------------------------------
 # 4. Run the sweep
@@ -109,7 +117,7 @@ records = []
 failed  = 0
 t_start = time.time()
 
-for idx, (T_c_in, m_c, T_h_in, m_h) in enumerate(param_grid, start=1):
+for idx, (T_c_in, m_c, T_h_in, m_h) in enumerate(cases, start=1):
 
     # Skip physically impossible combinations
     if T_c_in >= T_h_in:

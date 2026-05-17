@@ -40,11 +40,11 @@ ARTEFACT_DIR = "/workspace/10 Surrogate Models/ann_artefacts"
 os.makedirs(ARTEFACT_DIR, exist_ok=True)
 
 SEED        = 42
-BATCH_SIZE  = 64
-EPOCHS      = 300
-LR          = 1e-3
-HIDDEN      = [128, 256, 256, 128]   # hidden layer widths
-DROPOUT     = 0.2
+BATCH_SIZE  = 128
+EPOCHS      = 500
+LR          = 5e-4
+HIDDEN      = [256, 512, 256]   # hidden layer widths
+DROPOUT     = 0.1
 VAL_SPLIT   = 0.15
 TEST_SPLIT  = 0.10
 
@@ -59,19 +59,39 @@ print(f"Training on: {DEVICE}")
 df = pd.read_csv(DATA_CSV)
 print(f"Dataset shape: {df.shape}")
 
-INPUT_COLS  = ["cold_inlet_temp", "cold_mass_flow",
-               "hot_inlet_temp",  "hot_mass_flow"]
+# --- NEW: add derived features ---
+df['temp_diff'] = df['hot_inlet_temp'] - df['cold_inlet_temp']
+df['flow_product'] = df['cold_mass_flow'] * df['hot_mass_flow']
+df['flow_ratio'] = df['cold_mass_flow'] / (df['hot_mass_flow'] + 1e-8)
+
+INPUT_COLS = [
+    "cold_inlet_temp", "cold_mass_flow",
+    "hot_inlet_temp",  "hot_mass_flow",
+    "temp_diff", "flow_product", "flow_ratio"
+]
 OUTPUT_COLS = ["thermal_efficiency", "cold_pressure_drop", "hot_pressure_drop",
                "global_htc", "cold_outlet_temp", "hot_outlet_temp"]
 
 X_raw = df[INPUT_COLS].values.astype(np.float32)
 y_raw = df[OUTPUT_COLS].values.astype(np.float32)
 
+# --- NEW: define which outputs should be log-transformed ---
+# Indices of outputs that are strictly positive and span orders of magnitude
+LOG_COLS = [1, 2, 3]   # cold_pressure_drop, hot_pressure_drop, global_htc
+
+# Apply log1p to those columns (log(1+x) avoids log(0) if any value is zero)
+y_log = y_raw.copy()
+for idx in LOG_COLS:
+    y_log[:, idx] = np.log1p(y_raw[:, idx])
+
+# Now y_log holds the values we will scale and train on.
+# The remaining columns (efficiency, temperatures) are unchanged.
+
 # ---------------------------------------------------------------------------
-# 2. Train / Val / Test split  (70 / 15 / 15 default)
+# 2. Train / Val / Test split (use y_log, not y_raw)
 # ---------------------------------------------------------------------------
 X_trainval, X_test, y_trainval, y_test = train_test_split(
-    X_raw, y_raw, test_size=TEST_SPLIT, random_state=SEED)
+    X_raw, y_log, test_size=TEST_SPLIT, random_state=SEED)   
 X_train, X_val, y_train, y_val = train_test_split(
     X_trainval, y_trainval,
     test_size=VAL_SPLIT / (1 - TEST_SPLIT), random_state=SEED)
@@ -96,6 +116,11 @@ with open(os.path.join(ARTEFACT_DIR, "scaler_X.pkl"), "wb") as f:
     pickle.dump(scaler_X, f)
 with open(os.path.join(ARTEFACT_DIR, "scaler_y.pkl"), "wb") as f:
     pickle.dump(scaler_y, f)
+
+# Also save which outputs were log-transformed (for later inverse transform)
+log_info = {"LOG_COLS": LOG_COLS, "OUTPUT_COLS": OUTPUT_COLS}
+with open(os.path.join(ARTEFACT_DIR, "log_info.pkl"), "wb") as f:
+    pickle.dump(log_info, f)
 
 # Convert to PyTorch tensors
 def to_tensor(arr):
@@ -124,7 +149,7 @@ class HEXANN(nn.Module):
             layers += [
                 nn.Linear(prev, h),
                 nn.BatchNorm1d(h),
-                nn.SiLU(),           # Swish-like, smooth & non-saturating
+                nn.SiLU(),
                 nn.Dropout(dropout),
             ]
             prev = h
@@ -149,13 +174,21 @@ print(model)
 # ---------------------------------------------------------------------------
 # 5. Training
 # ---------------------------------------------------------------------------
-criterion = nn.MSELoss()
+output_weights = torch.tensor([1.0, 1.0, 2.0, 1.0, 1.0, 1.0]).to(DEVICE)
+
+def weighted_mse_loss(pred, target):
+    return (output_weights * (pred - target)**2).mean()
+
+criterion = weighted_mse_loss
 optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=1e-5)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, mode="min", patience=20, factor=0.5)
+    optimizer, mode="min", patience=40, factor=0.5)
 
 history = {"epoch": [], "train_loss": [], "val_loss": []}
 best_val_loss = float("inf")
+best_state = None
+patience = 80
+trigger = 0
 best_state    = None
 
 for epoch in range(1, EPOCHS + 1):
@@ -192,10 +225,15 @@ for epoch in range(1, EPOCHS + 1):
     if val_loss < best_val_loss:
         best_val_loss = val_loss
         best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-
-    if epoch % 25 == 0 or epoch == 1:
-        print(f"Epoch {epoch:4d}/{EPOCHS}  "
-              f"Train MSE: {train_loss:.6f}  Val MSE: {val_loss:.6f}")
+        trigger = 0
+    else:
+        trigger += 1
+        if trigger >= patience:
+            print(f"Early stopping at epoch {epoch}")
+            break
+        
+    if epoch % 10 == 0 or epoch == 1:
+        print(f"Epoch {epoch:4d}/{EPOCHS}  Train MSE: {train_loss:.6f}  Val MSE: {val_loss:.6f}")
 
 # ---------------------------------------------------------------------------
 # 6. Save model & training history
@@ -209,6 +247,7 @@ torch.save({
                      "dropout": DROPOUT},
     "input_cols":  INPUT_COLS,
     "output_cols": OUTPUT_COLS,
+    "log_info": log_info,
 }, os.path.join(ARTEFACT_DIR, "hex_ann_model.pt"))
 
 pd.DataFrame(history).to_csv(
@@ -227,9 +266,16 @@ with torch.no_grad():
 y_pred_s = np.vstack(all_pred)
 y_true_s = np.vstack(all_true)
 
-# Inverse-transform back to physical units
-y_pred = scaler_y.inverse_transform(y_pred_s)
-y_true = scaler_y.inverse_transform(y_true_s)
+# Inverse transform from scaled space to log-transformed space
+y_pred_log = scaler_y.inverse_transform(y_pred_s)
+y_true_log = scaler_y.inverse_transform(y_true_s)
+
+# Convert from log space back to physical units (only for LOG_COLS)
+y_pred = y_pred_log.copy()
+y_true = y_true_log.copy()
+for idx in LOG_COLS:
+    y_pred[:, idx] = np.expm1(y_pred_log[:, idx])
+    y_true[:, idx] = np.expm1(y_true_log[:, idx])
 
 mae  = np.abs(y_pred - y_true).mean(axis=0)
 rmse = np.sqrt(((y_pred - y_true) ** 2).mean(axis=0))

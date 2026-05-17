@@ -68,6 +68,8 @@ checkpoint = torch.load(MODEL_PATH, map_location="cpu")
 cfg        = checkpoint["model_config"]
 INPUT_COLS  = checkpoint["input_cols"]
 OUTPUT_COLS = checkpoint["output_cols"]
+log_info    = checkpoint["log_info"]
+LOG_COLS    = log_info["LOG_COLS"]
 
 model = HEXANN(**cfg)
 model.load_state_dict(checkpoint["model_state"])
@@ -79,12 +81,29 @@ with open(SCALER_X_PATH, "rb") as f:
 with open(SCALER_Y_PATH, "rb") as f:
     scaler_y = pickle.load(f)
 
+def add_derived_features(X_phys):
+    """
+    X_phys: numpy array of shape (N, 4) with columns:
+        [cold_inlet_temp, cold_mass_flow, hot_inlet_temp, hot_mass_flow]
+    Returns: array of shape (N, 7) with derived features appended.
+    """
+    temp_diff = X_phys[:, 2] - X_phys[:, 0]          # hot_inlet - cold_inlet
+    flow_product = X_phys[:, 1] * X_phys[:, 3]
+    flow_ratio = X_phys[:, 1] / (X_phys[:, 3] + 1e-8)
+    return np.column_stack([X_phys, temp_diff, flow_product, flow_ratio])
+
 def ann_predict(X_phys: np.ndarray) -> np.ndarray:
-    """X_phys shape: (N, 4). Returns (N, 6) in physical units."""
-    X_s = scaler_X.transform(X_phys.astype(np.float32))
+    # First, add the three derived features (now 7 inputs)
+    X_phys_ext = add_derived_features(X_phys)
+    # Scale using the same scaler (trained on 7 features)
+    X_s = scaler_X.transform(X_phys_ext.astype(np.float32))
     with torch.no_grad():
         y_s = model(torch.tensor(X_s)).numpy()
-    return scaler_y.inverse_transform(y_s)
+    y_log = scaler_y.inverse_transform(y_s)
+    y_phys = y_log.copy()
+    for idx in LOG_COLS:
+        y_phys[:, idx] = np.expm1(y_log[:, idx])
+    return y_phys
 
 # ---------------------------------------------------------------------------
 # 2.  Boot DWSIM
@@ -204,15 +223,17 @@ print("=" * 72)
 # ---------------------------------------------------------------------------
 # 6.  Save detailed results table
 # ---------------------------------------------------------------------------
-cols_in  = INPUT_COLS
+# Use only the original 4 input columns (the first 4 of INPUT_COLS)
+original_input_cols = INPUT_COLS[:4]   # cold_inlet_temp, cold_mass_flow, hot_inlet_temp, hot_mass_flow
 cols_sim = [f"sim_{c}" for c in OUTPUT_COLS]
 cols_ann = [f"ann_{c}" for c in OUTPUT_COLS]
 cols_err = [f"err_{c}" for c in OUTPUT_COLS]
 
 results_df = pd.DataFrame(
     np.hstack([cases_arr, dwsim_arr, ann_arr, abs_err]),
-    columns=cols_in + cols_sim + cols_ann + cols_err
+    columns=original_input_cols + cols_sim + cols_ann + cols_err
 )
+
 results_csv = os.path.join(OUTPUT_DIR, "verification_results.csv")
 results_df.to_csv(results_csv, index=False)
 print(f"\nDetailed results saved → {results_csv}")
