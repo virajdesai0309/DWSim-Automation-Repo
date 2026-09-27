@@ -1,0 +1,19 @@
+{
+  "model_id": "02_heat_exchanger",
+  "inputs": {
+    "hot_mass_flow": 1.0,
+    "hot_temperature": 360.0,
+    "cold_mass_flow": 1.0,
+    "cold_temperature": 300.0,
+    "area": 1.0,
+    "u_value": 1000.0
+  },
+  "outputs": {
+    "hot_out_temperature": 350.7404,
+    "cold_out_temperature": 312.1598,
+    "heat_duty": 49.2761,
+    "lmtd": 49.2761,
+    "effectiveness": 15.45
+  },
+  "duration_ms": 1248.1
+}

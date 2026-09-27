@@ -548,7 +548,7 @@ async function loadModels() {
 // ─────────────────────────────────────────────────────────────────
 function renderModelTree() {
   const tree = document.getElementById('model-tree');
-  const ICONS = { pump:'⚙', hex:'♨', heat:'♨', column:'▭', reactor:'⬡', default:'◈' };
+  const ICONS = { pump:'⚙', hex:'♨', heat:'♨', compressor:'⇪', column:'▭', reactor:'⬡', default:'◈' };
   const cats = {};
   models.forEach(m => {
     const c = (m.tags && m.tags[0]) ? m.tags[0] : 'other';
@@ -636,19 +636,41 @@ function renderCanvas() {
   document.getElementById('model-desc-bar').textContent  = meta.description;
   document.getElementById('btn-simulate').disabled = false;
 
-  const N = nodes.length;
-  const NODE_GAP = 220;
+  const NODE_GAP = 220;   // horizontal distance between columns
+  const ROW_GAP  = 210;   // vertical distance between nodes sharing a column
   const STREAM_R = 26;
   const EQUIP_R  = 42;
   const PADDING  = 120;
 
-  worldW = PADDING * 2 + (N - 1) * NODE_GAP;
-  worldH = 460;
-  const cy = worldH / 2 + 20; // shift center down to give room for result labels above
+  // Layered layout: a node's column is its longest path from a source, so
+  // inlets sit left of the unit and outlets right of it. Nodes that share a
+  // column stack vertically in schema order. A straight chain (e.g. the pump)
+  // stays a single row.
+  const depth = {};
+  nodes.forEach(n => { depth[n.id] = 0; });
+  for (let pass = 0; pass < nodes.length; pass++) {
+    connections.forEach(c => {
+      if (c.from in depth && c.to in depth)
+        depth[c.to] = Math.max(depth[c.to], depth[c.from] + 1);
+    });
+  }
+  const layers = [];
+  nodes.forEach(n => { (layers[depth[n.id]] = layers[depth[n.id]] || []).push(n.id); });
+  const maxRows  = Math.max(...layers.map(l => (l ? l.length : 0)));
+  const contentH = (maxRows - 1) * ROW_GAP;
+
+  worldW = PADDING * 2 + (layers.length - 1) * NODE_GAP;
+  worldH = Math.max(460, contentH + 300);
+  const midY = worldH / 2 + 20; // shift center down to give room for result labels above
 
   const pos = {};
-  nodes.forEach((n, i) => {
-    pos[n.id] = { x: PADDING + i * NODE_GAP, y: cy };
+  layers.forEach((ids, li) => {
+    (ids || []).forEach((id, ri) => {
+      pos[id] = {
+        x: PADDING + li * NODE_GAP,
+        y: midY - (ids.length - 1) * ROW_GAP / 2 + ri * ROW_GAP,
+      };
+    });
   });
 
   const svg = document.getElementById('flowchart-svg');
@@ -664,19 +686,27 @@ function renderCanvas() {
     const tn = nodes.find(n => n.id === c.to);
     const x1 = f.x + (fn.type === 'stream' ? STREAM_R : EQUIP_R);
     const x2 = t.x - (tn.type === 'stream' ? STREAM_R : EQUIP_R);
+    const y1 = f.y, y2 = t.y;
+    const straight = Math.abs(y1 - y2) < 1;
 
+    // Straight pipe, or an elbow (across, down/up at mid-x, across) between rows
+    const xm = (x1 + x2) / 2;
+    const d  = straight ? `M${x1},${y1} H${x2}` : `M${x1},${y1} H${xm} V${y2} H${x2}`;
+    const pipe = { d, fill:'none', 'stroke-linecap':'round', 'stroke-linejoin':'round' };
     // Pipe shadow
-    svg.appendChild(ms('line', { x1, y1:cy, x2, y2:cy, stroke:'#0d0f12', 'stroke-width':7, 'stroke-linecap':'round' }));
+    svg.appendChild(ms('path', { ...pipe, stroke:'#0d0f12', 'stroke-width':7 }));
     // Pipe body
-    svg.appendChild(ms('line', { x1, y1:cy, x2, y2:cy, stroke:'#2a3040', 'stroke-width':4, 'stroke-linecap':'round' }));
-    // Flow arrow
-    const mx = (x1 + x2) / 2;
-    svg.appendChild(ms('polygon', { points:`${mx-8},${cy-6} ${mx+8},${cy} ${mx-8},${cy+6}`, fill:'#3a4358' }));
+    svg.appendChild(ms('path', { ...pipe, stroke:'#2a3040', 'stroke-width':4 }));
+    // Flow arrow on the last horizontal run
+    const ax = straight ? xm : (xm + x2) / 2;
+    svg.appendChild(ms('polygon', { points:`${ax-8},${y2-6} ${ax+8},${y2} ${ax-8},${y2+6}`, fill:'#3a4358' }));
 
-    // Pipe label (connection midpoint)
-    const lbl = ms('text', { x:mx, y:cy - 14, 'text-anchor':'middle', 'font-family':'Share Tech Mono,monospace', 'font-size':'9px', fill:'#3a4358', 'pointer-events':'none' });
-    lbl.textContent = `${c.from} → ${c.to}`;
-    svg.appendChild(lbl);
+    // Pipe label (straight runs only; elbows would crowd it)
+    if (straight) {
+      const lbl = ms('text', { x:xm, y:y1 - 14, 'text-anchor':'middle', 'font-family':'Share Tech Mono,monospace', 'font-size':'9px', fill:'#3a4358', 'pointer-events':'none' });
+      lbl.textContent = `${c.from} → ${c.to}`;
+      svg.appendChild(lbl);
+    }
   });
 
   // ── Nodes ──
@@ -727,7 +757,7 @@ function renderCanvas() {
       g.appendChild(ms('polygon', { class:'equip-body', points:hexPts(p.x, p.y, EQUIP_R), fill:'#1a1e26', stroke:'#ffb020', 'stroke-width':1.5 }));
       // Icon
       const ic = ms('text', { x:p.x, y:p.y+7, 'text-anchor':'middle', 'font-size':'22px', fill:'#ffb020', 'pointer-events':'none' });
-      ic.textContent = '⚙'; g.appendChild(ic);
+      ic.textContent = n.icon || '⚙'; g.appendChild(ic);
 
       // Label above
       const lbl = ms('text', { class:'node-label', x:p.x, y:p.y - EQUIP_R - 14 });

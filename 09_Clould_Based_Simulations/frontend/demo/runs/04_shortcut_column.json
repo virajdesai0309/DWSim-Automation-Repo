@@ -1,0 +1,26 @@
+{
+  "model_id": "04_shortcut_column",
+  "inputs": {
+    "feed_mass_flow": 1.0,
+    "feed_temperature": 300.0,
+    "benzene_fraction": 0.5,
+    "reflux_ratio": 1.5,
+    "lk_in_bottoms": 0.01,
+    "hk_in_distillate": 0.01,
+    "pressure": 101325.0
+  },
+  "outputs": {
+    "min_reflux": 0.7137,
+    "min_stages": 7.65,
+    "stages": 12.53,
+    "feed_stage": 6.27,
+    "condenser_duty": 446.04,
+    "reboiler_duty": 566.53,
+    "distillate_flow": 0.4596,
+    "distillate_temperature": 353.02,
+    "distillate_benzene": 0.99,
+    "residue_flow": 0.5404,
+    "residue_temperature": 383.35
+  },
+  "duration_ms": 1141.7
+}

@@ -124,9 +124,26 @@ Browser receives JSON → renders results panel + flowchart labels
     │   ├── model.dwxmz       # DWSIM flowsheet file
     │   └── flowsheet.png     # Flowsheet screenshot (optional)
     │
-    ├── 02_heat_exchanger/    # Future model — same structure
-    └── 03_distillation/      # Future model — same structure
+    ├── 02_heat_exchanger/    # Water/methanol shell-and-tube HEX (NRTL, UA rating)
+    ├── 03_gas_compressor/    # Adiabatic methane compressor (Peng-Robinson)
+    └── 04_shortcut_column/   # Benzene/toluene FUG shortcut column
 ```
+
+### Current models
+
+| Model | Source exercise | Inputs | Key outputs |
+|---|---|---|---|
+| `01_water_pump` | `01 Automation of Pump` | Inlet flow/T/P, outlet pressure | Outlet state, shaft power |
+| `02_heat_exchanger` | `00 FlowSheet Automation/06 HEX` | Hot and cold inlet flow/T, area, U | Both outlet temperatures, duty, LMTD, effectiveness |
+| `03_gas_compressor` | `00 FlowSheet Automation/07 Compressor` | Inlet flow/T/P, discharge pressure, adiabatic efficiency (%) | Discharge T/P, shaft power |
+| `04_shortcut_column` | `00 FlowSheet Automation/11 Shortcut Column` | Feed flow/T/benzene fraction, reflux ratio, key specs, pressure | Rmin, Nmin, N, feed stage, condenser/reboiler duty, product flows and purity |
+
+Gotchas found while porting:
+- DWSIM's compressor `AdiabaticEfficiency` is a **percentage** (default 75.0). Setting `0.85` means
+  0.85 % and gives a ~2000 K discharge.
+- Enum properties must be assigned, not read: `C_1.CalcMode.PressureRatio` on its own does nothing.
+  Use `comp.CalcMode = Enum.Parse(comp.CalcMode.GetType(), "OutletPressure")`.
+- A heat exchanger with both inlets at the same temperature fails with "failed to calculate NTU".
 
 > **The golden rule:** `main.py`, `registry.py`, and `index.html` are written once and never touched again. All new work lives inside a new folder under `models/`.
 
@@ -191,7 +208,12 @@ The schema file drives both the API validation and the frontend UI generation. I
 }
 ```
 
-Node types currently supported: `stream` (circle) and `equipment` (hexagon).
+Node types currently supported: `stream` (circle) and `equipment` (hexagon). An equipment node
+can set `"icon"` (e.g. `"♨"`) to replace the default `⚙`.
+
+The canvas lays nodes out in columns by their longest path from an inlet, so inlets sit left of
+the unit and outlets right of it. Nodes that share a column stack vertically in `nodes` order and
+are joined with elbow pipes, which is how the HEX (2 in, 2 out) and the column (1 in, 2 out) are drawn.
 
 **`inputs`** — each field requires `id`, `label`, `type`, `unit`, and `node`:
 ```json
@@ -223,8 +245,9 @@ def run(inputs: dict) -> dict:
 
 - `inputs` is a flat dict with keys matching schema `inputs[].id`, already type-coerced
 - Return a flat dict with keys matching schema `outputs[].id`
-- Any exception raised here is caught by the API and returned as a 500 error
-- A private key `_solver_errors` can optionally be returned for diagnostics
+- Any exception raised here is caught by the API and returned as a 500 error, and the UI shows its
+  message. Raise when `CalculateFlowsheet4` returns errors (the runners join DWSIM's messages) so
+  visitors see e.g. "Defined Reflux Ratio (0.5) lower than calculated minimum (0.71)" instead of stale numbers
 
 ---
 

@@ -12,7 +12,7 @@ This repository contains a collection of exercises related to unit operations au
 
 ## 🌐 Live demo
 
-Run a DWSIM simulation from your browser: **[DWSIM Cloud Simulation](https://virajdesai0309.github.io/DWSim-Automation-Repo/)**
+Run a pump, heat exchanger, gas compressor or shortcut distillation column in DWSIM from your browser: **[DWSIM Cloud Simulation](https://virajdesai0309.github.io/DWSim-Automation-Repo/)**
 
 The solver runs headless DWSIM (.NET 8 + pythonnet) behind a FastAPI backend on Render's free tier. The free instance sleeps when idle, so the first run can take a minute or two while it wakes. If it can't be reached, the page shows recorded results from the same model. See [`09_Clould_Based_Simulations/`](09_Clould_Based_Simulations/dwsim_cloud_simulation.md#cloud-deployment-notes) for how it's deployed.
 

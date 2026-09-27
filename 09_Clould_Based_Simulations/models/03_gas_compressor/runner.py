@@ -1,5 +1,5 @@
 """
-Water Pump runner.
+Gas Compressor runner.
 Contract: expose run(inputs: dict) -> dict
 The backend calls this; never import this file directly.
 """
@@ -50,53 +50,49 @@ def _bootstrap_dwsim():
     return _dwsim_cache
 
 
-# ── Public contract ─────────────────────────────────────────────────────────────
-
-def run(inputs: dict) -> dict:
-    """
-    Runs the water pump DWSIM simulation.
-
-    inputs:
-        mass_flow       — kg/s
-        temperature     — K
-        pressure        — Pa
-        outlet_pressure — Pa
-
-    returns:
-        mass_flow_out   — kg/s
-        temperature_out — K
-        pressure_out    — Pa
-        power_consumed  — kW (DWSIM DeltaQ)
-    """
-    if inputs["outlet_pressure"] <= inputs["pressure"]:
-        raise ValueError("Outlet pressure must be higher than the inlet pressure.")
-
-    Automation3, Settings, DotNetPath, Environment = _bootstrap_dwsim()
-
-    interf = Automation3()
-    sim    = interf.LoadFlowsheet(MODEL_FILE)
-
-    # Get stream and unit operation objects
-    one  = sim.GetObject("1").GetAsObject()
-    two  = sim.GetObject("2").GetAsObject()
-    pump = sim.GetObject("PUMP-1").GetAsObject()
-
-    # Push inputs into the model
-    one.SetMassFlow(inputs["mass_flow"])
-    one.SetTemperature(inputs["temperature"])
-    one.SetPressure(inputs["pressure"])
-    pump.set_Pout(inputs["outlet_pressure"])
-
-    # Solve; surface DWSIM's own messages instead of returning stale numbers
+def _solve(interf, sim, Settings):
+    """Solve the flowsheet; raise with DWSIM's own messages if it fails."""
     Settings.SolverMode = 0
     errors = interf.CalculateFlowsheet4(sim)
     msgs = [str(getattr(e, "Message", e)) for e in errors] if errors else []
     if msgs:
         raise RuntimeError("; ".join(msgs))
 
+
+# ── Public contract ─────────────────────────────────────────────────────────────
+
+def run(inputs: dict) -> dict:
+    """
+    Runs the adiabatic methane compressor (Peng-Robinson).
+
+    Note: DWSIM takes AdiabaticEfficiency in percent (default 75.0), not as a
+    fraction. Passing 0.85 means 0.85 % and gives a ~2000 K outlet.
+    """
+    if inputs["outlet_pressure"] <= inputs["pressure"]:
+        raise ValueError("Outlet pressure must be higher than the inlet pressure.")
+
+    Automation3, Settings, DotNetPath, Environment = _bootstrap_dwsim()
+    from System import Enum
+
+    interf = Automation3()
+    sim    = interf.LoadFlowsheet(MODEL_FILE)
+
+    one  = sim.GetObject("1").GetAsObject()
+    two  = sim.GetObject("2").GetAsObject()
+    comp = sim.GetObject("C-1").GetAsObject()
+
+    one.SetMassFlow(inputs["mass_flow"])
+    one.SetTemperature(inputs["temperature"])
+    one.SetPressure(inputs["pressure"])
+    comp.CalcMode = Enum.Parse(comp.CalcMode.GetType(), "OutletPressure")
+    comp.POut = inputs["outlet_pressure"]
+    comp.AdiabaticEfficiency = inputs["efficiency"]
+
+    _solve(interf, sim, Settings)
+
     return {
-        "mass_flow_out":   round(float(two.GetMassFlow()),    6),
-        "temperature_out": round(float(two.GetTemperature()), 4),
-        "pressure_out":    round(float(two.GetPressure()),    2),
-        "power_consumed":  round(float(pump.get_DeltaQ()),    4),
+        "temperature_out":  round(float(two.GetTemperature()), 4),
+        "pressure_out":     round(float(two.GetPressure()),    2),
+        "power":            round(float(comp.DeltaQ),          4),
+        "temperature_rise": round(float(comp.DeltaT),          4),
     }

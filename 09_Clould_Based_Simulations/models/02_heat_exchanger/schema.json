@@ -1,0 +1,122 @@
+{
+  "flowchart": {
+    "nodes": [
+      { "id": "hot_in", "type": "stream", "label": "Hot in (1)" },
+      { "id": "cold_in", "type": "stream", "label": "Cold in (3)" },
+      { "id": "hex", "type": "equipment", "label": "HEX-1", "icon": "♨" },
+      { "id": "hot_out", "type": "stream", "label": "Hot out (2)" },
+      { "id": "cold_out", "type": "stream", "label": "Cold out (4)" }
+    ],
+    "connections": [
+      { "from": "hot_in", "to": "hex" },
+      { "from": "cold_in", "to": "hex" },
+      { "from": "hex", "to": "hot_out" },
+      { "from": "hex", "to": "cold_out" }
+    ]
+  },
+  "inputs": [
+    {
+      "id": "hot_mass_flow",
+      "label": "Hot mass flow rate",
+      "unit": "kg/s",
+      "type": "float",
+      "default": 1.0,
+      "min": 0.1,
+      "max": 10.0,
+      "description": "Water (1 % methanol) entering the hot side",
+      "node": "hot_in"
+    },
+    {
+      "id": "hot_temperature",
+      "label": "Hot inlet temperature",
+      "unit": "K",
+      "type": "float",
+      "default": 360.0,
+      "min": 310.0,
+      "max": 370.0,
+      "description": "Kept below 370 K so the water stays liquid at 1 atm",
+      "node": "hot_in"
+    },
+    {
+      "id": "cold_mass_flow",
+      "label": "Cold mass flow rate",
+      "unit": "kg/s",
+      "type": "float",
+      "default": 1.0,
+      "min": 0.1,
+      "max": 10.0,
+      "description": "Methanol entering the cold side",
+      "node": "cold_in"
+    },
+    {
+      "id": "cold_temperature",
+      "label": "Cold inlet temperature",
+      "unit": "K",
+      "type": "float",
+      "default": 300.0,
+      "min": 275.0,
+      "max": 330.0,
+      "description": "Methanol boils at about 338 K at 1 atm",
+      "node": "cold_in"
+    },
+    {
+      "id": "area",
+      "label": "Heat-transfer area",
+      "unit": "m²",
+      "type": "float",
+      "default": 1.0,
+      "min": 0.1,
+      "max": 20.0,
+      "description": "Exchanger surface area",
+      "node": "hex"
+    },
+    {
+      "id": "u_value",
+      "label": "Overall coefficient U",
+      "unit": "W/m²·K",
+      "type": "float",
+      "default": 1000.0,
+      "min": 100.0,
+      "max": 3000.0,
+      "description": "Overall heat-transfer coefficient",
+      "node": "hex"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "hot_out_temperature",
+      "label": "Hot outlet temperature",
+      "unit": "K",
+      "description": "Water leaving the hot side",
+      "node": "hot_out"
+    },
+    {
+      "id": "cold_out_temperature",
+      "label": "Cold outlet temperature",
+      "unit": "K",
+      "description": "Methanol leaving the cold side",
+      "node": "cold_out"
+    },
+    {
+      "id": "heat_duty",
+      "label": "Heat duty",
+      "unit": "kW",
+      "description": "Heat transferred from the hot to the cold side",
+      "node": "hex"
+    },
+    {
+      "id": "lmtd",
+      "label": "LMTD",
+      "unit": "K",
+      "description": "Log-mean temperature difference",
+      "node": "hex"
+    },
+    {
+      "id": "effectiveness",
+      "label": "Thermal effectiveness",
+      "unit": "%",
+      "description": "Actual duty as a share of the maximum possible duty",
+      "node": "hex"
+    }
+  ]
+}

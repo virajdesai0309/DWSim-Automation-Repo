@@ -11,5 +11,44 @@
     "version": "1.0",
     "author": "DWSIM Automation",
     "has_flowsheet": false
+  },
+  {
+    "id": "02_heat_exchanger",
+    "name": "Heat Exchanger",
+    "description": "Counter-current shell-and-tube exchanger cooling hot water with cold methanol (NRTL). Set both inlet streams, the area and the overall heat-transfer coefficient; DWSIM rates the exchanger and returns both outlet temperatures, duty and LMTD.",
+    "tags": [
+      "hex",
+      "heat transfer",
+      "NRTL"
+    ],
+    "version": "1.0",
+    "author": "DWSIM Automation",
+    "has_flowsheet": false
+  },
+  {
+    "id": "03_gas_compressor",
+    "name": "Gas Compressor",
+    "description": "Adiabatic compressor raising methane pressure (Peng-Robinson). Set the inlet conditions, discharge pressure and adiabatic efficiency to get the discharge temperature and the shaft power required.",
+    "tags": [
+      "compressor",
+      "gas",
+      "Peng-Robinson"
+    ],
+    "version": "1.0",
+    "author": "DWSIM Automation",
+    "has_flowsheet": false
+  },
+  {
+    "id": "04_shortcut_column",
+    "name": "Shortcut Distillation Column",
+    "description": "Benzene/toluene column designed with the Fenske-Underwood-Gilliland shortcut method (Peng-Robinson, total condenser). Set the feed, reflux ratio and key-component specs to get minimum reflux, number of stages, feed stage and condenser/reboiler duties.",
+    "tags": [
+      "column",
+      "distillation",
+      "separation"
+    ],
+    "version": "1.0",
+    "author": "DWSIM Automation",
+    "has_flowsheet": false
   }
 ]

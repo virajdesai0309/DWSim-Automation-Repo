@@ -29,8 +29,8 @@
       "type": "float",
       "default": 300.0,
       "min": 273.15,
-      "max": 500.0,
-      "description": "Temperature of the inlet stream",
+      "max": 370.0,
+      "description": "Temperature of the inlet stream (kept below 370 K so the water stays liquid)",
       "node": "stream_in"
     },
     {
@@ -39,7 +39,7 @@
       "unit": "Pa",
       "type": "float",
       "default": 101325.0,
-      "min": 1000.0,
+      "min": 50000.0,
       "max": 10000000.0,
       "description": "Absolute pressure at pump inlet",
       "node": "stream_in"
@@ -50,9 +50,9 @@
       "unit": "Pa",
       "type": "float",
       "default": 301325.0,
-      "min": 1000.0,
+      "min": 60000.0,
       "max": 10000000.0,
-      "description": "Target absolute pressure at pump outlet",
+      "description": "Target absolute pressure at pump outlet; must exceed the inlet pressure",
       "node": "pump"
     }
   ],

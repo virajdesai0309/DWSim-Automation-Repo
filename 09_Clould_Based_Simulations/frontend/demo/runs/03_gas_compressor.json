@@ -1,0 +1,17 @@
+{
+  "model_id": "03_gas_compressor",
+  "inputs": {
+    "mass_flow": 1.0,
+    "temperature": 300.0,
+    "pressure": 101325.0,
+    "outlet_pressure": 601325.0,
+    "efficiency": 85.0
+  },
+  "outputs": {
+    "temperature_out": 461.8379,
+    "pressure_out": 601325.0,
+    "power": 398.0012,
+    "temperature_rise": 161.8379
+  },
+  "duration_ms": 1137.8
+}

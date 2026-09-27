@@ -1,0 +1,173 @@
+{
+  "flowchart": {
+    "nodes": [
+      { "id": "feed", "type": "stream", "label": "Feed" },
+      { "id": "column", "type": "equipment", "label": "SC", "icon": "▭" },
+      { "id": "distillate", "type": "stream", "label": "Distillate" },
+      { "id": "residue", "type": "stream", "label": "Bottoms" }
+    ],
+    "connections": [
+      { "from": "feed", "to": "column" },
+      { "from": "column", "to": "distillate" },
+      { "from": "column", "to": "residue" }
+    ]
+  },
+  "inputs": [
+    {
+      "id": "feed_mass_flow",
+      "label": "Feed mass flow rate",
+      "unit": "kg/s",
+      "type": "float",
+      "default": 1.0,
+      "min": 0.1,
+      "max": 20.0,
+      "description": "Benzene/toluene feed",
+      "node": "feed"
+    },
+    {
+      "id": "feed_temperature",
+      "label": "Feed temperature",
+      "unit": "K",
+      "type": "float",
+      "default": 300.0,
+      "min": 280.0,
+      "max": 370.0,
+      "description": "Subcooled liquid feed below about 365 K at 1 atm",
+      "node": "feed"
+    },
+    {
+      "id": "benzene_fraction",
+      "label": "Benzene in feed",
+      "unit": "mol frac",
+      "type": "float",
+      "default": 0.5,
+      "min": 0.1,
+      "max": 0.9,
+      "description": "Mole fraction of benzene (light key); the rest is toluene",
+      "node": "feed"
+    },
+    {
+      "id": "reflux_ratio",
+      "label": "Reflux ratio",
+      "unit": "",
+      "type": "float",
+      "default": 1.5,
+      "min": 0.1,
+      "max": 10.0,
+      "description": "Must be above the minimum reflux DWSIM calculates",
+      "node": "column"
+    },
+    {
+      "id": "lk_in_bottoms",
+      "label": "Benzene in bottoms",
+      "unit": "mol frac",
+      "type": "float",
+      "default": 0.01,
+      "min": 0.001,
+      "max": 0.1,
+      "description": "Light-key mole fraction allowed in the bottoms",
+      "node": "column"
+    },
+    {
+      "id": "hk_in_distillate",
+      "label": "Toluene in distillate",
+      "unit": "mol frac",
+      "type": "float",
+      "default": 0.01,
+      "min": 0.001,
+      "max": 0.1,
+      "description": "Heavy-key mole fraction allowed in the distillate",
+      "node": "column"
+    },
+    {
+      "id": "pressure",
+      "label": "Column pressure",
+      "unit": "Pa",
+      "type": "float",
+      "default": 101325.0,
+      "min": 50000.0,
+      "max": 500000.0,
+      "description": "Feed, condenser and reboiler pressure",
+      "node": "column"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "min_reflux",
+      "label": "Minimum reflux",
+      "unit": "",
+      "description": "Underwood minimum reflux ratio",
+      "node": "column"
+    },
+    {
+      "id": "min_stages",
+      "label": "Minimum stages",
+      "unit": "",
+      "description": "Fenske minimum number of stages at total reflux",
+      "node": "column"
+    },
+    {
+      "id": "stages",
+      "label": "Theoretical stages",
+      "unit": "",
+      "description": "Gilliland estimate at the chosen reflux ratio",
+      "node": "column"
+    },
+    {
+      "id": "feed_stage",
+      "label": "Optimal feed stage",
+      "unit": "",
+      "description": "Counted from the top",
+      "node": "column"
+    },
+    {
+      "id": "condenser_duty",
+      "label": "Condenser duty",
+      "unit": "kW",
+      "description": "Heat removed in the total condenser",
+      "node": "column"
+    },
+    {
+      "id": "reboiler_duty",
+      "label": "Reboiler duty",
+      "unit": "kW",
+      "description": "Heat added in the reboiler",
+      "node": "column"
+    },
+    {
+      "id": "distillate_flow",
+      "label": "Distillate flow",
+      "unit": "kg/s",
+      "description": "Top product mass flow",
+      "node": "distillate"
+    },
+    {
+      "id": "distillate_temperature",
+      "label": "Distillate temperature",
+      "unit": "K",
+      "description": "Top product temperature",
+      "node": "distillate"
+    },
+    {
+      "id": "distillate_benzene",
+      "label": "Benzene purity",
+      "unit": "mol frac",
+      "description": "Benzene mole fraction in the distillate",
+      "node": "distillate"
+    },
+    {
+      "id": "residue_flow",
+      "label": "Bottoms flow",
+      "unit": "kg/s",
+      "description": "Bottom product mass flow",
+      "node": "residue"
+    },
+    {
+      "id": "residue_temperature",
+      "label": "Bottoms temperature",
+      "unit": "K",
+      "description": "Bottom product temperature",
+      "node": "residue"
+    }
+  ]
+}

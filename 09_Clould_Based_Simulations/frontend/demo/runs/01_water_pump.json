@@ -10,8 +10,7 @@
     "mass_flow_out": 1.0,
     "temperature_out": 300.02,
     "pressure_out": 301325.0,
-    "power_consumed": 0.2676,
-    "_solver_errors": 0
+    "power_consumed": 0.2676
   },
-  "duration_ms": 2682.0
+  "duration_ms": 1206.2
 }

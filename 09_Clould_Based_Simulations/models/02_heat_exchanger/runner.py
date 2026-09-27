@@ -1,5 +1,5 @@
 """
-Water Pump runner.
+Heat Exchanger runner.
 Contract: expose run(inputs: dict) -> dict
 The backend calls this; never import this file directly.
 """
@@ -50,53 +50,53 @@ def _bootstrap_dwsim():
     return _dwsim_cache
 
 
-# ── Public contract ─────────────────────────────────────────────────────────────
-
-def run(inputs: dict) -> dict:
-    """
-    Runs the water pump DWSIM simulation.
-
-    inputs:
-        mass_flow       — kg/s
-        temperature     — K
-        pressure        — Pa
-        outlet_pressure — Pa
-
-    returns:
-        mass_flow_out   — kg/s
-        temperature_out — K
-        pressure_out    — Pa
-        power_consumed  — kW (DWSIM DeltaQ)
-    """
-    if inputs["outlet_pressure"] <= inputs["pressure"]:
-        raise ValueError("Outlet pressure must be higher than the inlet pressure.")
-
-    Automation3, Settings, DotNetPath, Environment = _bootstrap_dwsim()
-
-    interf = Automation3()
-    sim    = interf.LoadFlowsheet(MODEL_FILE)
-
-    # Get stream and unit operation objects
-    one  = sim.GetObject("1").GetAsObject()
-    two  = sim.GetObject("2").GetAsObject()
-    pump = sim.GetObject("PUMP-1").GetAsObject()
-
-    # Push inputs into the model
-    one.SetMassFlow(inputs["mass_flow"])
-    one.SetTemperature(inputs["temperature"])
-    one.SetPressure(inputs["pressure"])
-    pump.set_Pout(inputs["outlet_pressure"])
-
-    # Solve; surface DWSIM's own messages instead of returning stale numbers
+def _solve(interf, sim, Settings):
+    """Solve the flowsheet; raise with DWSIM's own messages if it fails."""
     Settings.SolverMode = 0
     errors = interf.CalculateFlowsheet4(sim)
     msgs = [str(getattr(e, "Message", e)) for e in errors] if errors else []
     if msgs:
         raise RuntimeError("; ".join(msgs))
 
+
+# ── Public contract ─────────────────────────────────────────────────────────────
+
+def run(inputs: dict) -> dict:
+    """
+    Runs the shell-and-tube heat exchanger (counter-current, rating mode:
+    DWSIM solves both outlet temperatures from area and U).
+
+    Hot side:  stream 1 -> 2, water with 1 % methanol
+    Cold side: stream 3 -> 4, methanol
+    Property package: NRTL
+    """
+    if inputs["hot_temperature"] <= inputs["cold_temperature"]:
+        raise ValueError("Hot inlet must be hotter than the cold inlet.")
+
+    Automation3, Settings, DotNetPath, Environment = _bootstrap_dwsim()
+
+    interf = Automation3()
+    sim    = interf.LoadFlowsheet(MODEL_FILE)
+
+    hot_in   = sim.GetObject("1").GetAsObject()
+    hot_out  = sim.GetObject("2").GetAsObject()
+    cold_in  = sim.GetObject("3").GetAsObject()
+    cold_out = sim.GetObject("4").GetAsObject()
+    hx       = sim.GetObject("HEX-1").GetAsObject()
+
+    hot_in.SetMassFlow(inputs["hot_mass_flow"])
+    hot_in.SetTemperature(inputs["hot_temperature"])
+    cold_in.SetMassFlow(inputs["cold_mass_flow"])
+    cold_in.SetTemperature(inputs["cold_temperature"])
+    hx.Area               = inputs["area"]
+    hx.OverallCoefficient = inputs["u_value"]
+
+    _solve(interf, sim, Settings)
+
     return {
-        "mass_flow_out":   round(float(two.GetMassFlow()),    6),
-        "temperature_out": round(float(two.GetTemperature()), 4),
-        "pressure_out":    round(float(two.GetPressure()),    2),
-        "power_consumed":  round(float(pump.get_DeltaQ()),    4),
+        "hot_out_temperature":  round(float(hot_out.GetTemperature()),  4),
+        "cold_out_temperature": round(float(cold_out.GetTemperature()), 4),
+        "heat_duty":            round(float(hx.Q),                 4),
+        "lmtd":                 round(float(hx.LMTD),              4),
+        "effectiveness":        round(float(hx.ThermalEfficiency), 2),
     }

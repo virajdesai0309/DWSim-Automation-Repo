@@ -1,0 +1,8 @@
+{
+  "id": "02_heat_exchanger",
+  "name": "Heat Exchanger",
+  "description": "Counter-current shell-and-tube exchanger cooling hot water with cold methanol (NRTL). Set both inlet streams, the area and the overall heat-transfer coefficient; DWSIM rates the exchanger and returns both outlet temperatures, duty and LMTD.",
+  "tags": ["hex", "heat transfer", "NRTL"],
+  "version": "1.0",
+  "author": "DWSIM Automation"
+}

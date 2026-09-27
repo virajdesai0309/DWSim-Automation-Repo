@@ -1,0 +1,8 @@
+{
+  "id": "03_gas_compressor",
+  "name": "Gas Compressor",
+  "description": "Adiabatic compressor raising methane pressure (Peng-Robinson). Set the inlet conditions, discharge pressure and adiabatic efficiency to get the discharge temperature and the shaft power required.",
+  "tags": ["compressor", "gas", "Peng-Robinson"],
+  "version": "1.0",
+  "author": "DWSIM Automation"
+}

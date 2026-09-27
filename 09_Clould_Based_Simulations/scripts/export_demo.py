@@ -43,10 +43,8 @@ def main():
         write(f"models/{model_id}.json", detail)
         defaults = {f["id"]: f.get("default") for f in detail["schema"]["inputs"]}
         print(f"  running {model_id} with defaults…")
+        # Runners raise on DWSIM solver errors, so a failed solve stops here (HTTP 500)
         run = call(f"/run/{model_id}", defaults)
-        errors = run["outputs"].get("_solver_errors", 0)
-        if errors:
-            print(f"  WARNING: {model_id} reported {errors} solver error(s)")
         write(f"runs/{model_id}.json", run)
 
 

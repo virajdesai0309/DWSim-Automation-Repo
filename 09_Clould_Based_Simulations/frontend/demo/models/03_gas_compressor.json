@@ -1,0 +1,133 @@
+{
+  "meta": {
+    "id": "03_gas_compressor",
+    "name": "Gas Compressor",
+    "description": "Adiabatic compressor raising methane pressure (Peng-Robinson). Set the inlet conditions, discharge pressure and adiabatic efficiency to get the discharge temperature and the shaft power required.",
+    "tags": [
+      "compressor",
+      "gas",
+      "Peng-Robinson"
+    ],
+    "version": "1.0",
+    "author": "DWSIM Automation"
+  },
+  "schema": {
+    "flowchart": {
+      "nodes": [
+        {
+          "id": "stream_in",
+          "type": "stream",
+          "label": "Stream 1"
+        },
+        {
+          "id": "compressor",
+          "type": "equipment",
+          "label": "C-1",
+          "icon": "\u21ea"
+        },
+        {
+          "id": "stream_out",
+          "type": "stream",
+          "label": "Stream 2"
+        }
+      ],
+      "connections": [
+        {
+          "from": "stream_in",
+          "to": "compressor"
+        },
+        {
+          "from": "compressor",
+          "to": "stream_out"
+        }
+      ]
+    },
+    "inputs": [
+      {
+        "id": "mass_flow",
+        "label": "Inlet mass flow rate",
+        "unit": "kg/s",
+        "type": "float",
+        "default": 1.0,
+        "min": 0.01,
+        "max": 50.0,
+        "description": "Methane entering the compressor",
+        "node": "stream_in"
+      },
+      {
+        "id": "temperature",
+        "label": "Inlet temperature",
+        "unit": "K",
+        "type": "float",
+        "default": 300.0,
+        "min": 200.0,
+        "max": 400.0,
+        "description": "Suction temperature",
+        "node": "stream_in"
+      },
+      {
+        "id": "pressure",
+        "label": "Inlet pressure",
+        "unit": "Pa",
+        "type": "float",
+        "default": 101325.0,
+        "min": 50000.0,
+        "max": 5000000.0,
+        "description": "Absolute suction pressure",
+        "node": "stream_in"
+      },
+      {
+        "id": "outlet_pressure",
+        "label": "Discharge pressure",
+        "unit": "Pa",
+        "type": "float",
+        "default": 601325.0,
+        "min": 60000.0,
+        "max": 10000000.0,
+        "description": "Absolute discharge pressure; must exceed the inlet pressure",
+        "node": "compressor"
+      },
+      {
+        "id": "efficiency",
+        "label": "Adiabatic efficiency",
+        "unit": "%",
+        "type": "float",
+        "default": 85.0,
+        "min": 50.0,
+        "max": 100.0,
+        "description": "Isentropic efficiency of the compression",
+        "node": "compressor"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "temperature_out",
+        "label": "Discharge temperature",
+        "unit": "K",
+        "description": "Temperature leaving the compressor",
+        "node": "stream_out"
+      },
+      {
+        "id": "pressure_out",
+        "label": "Discharge pressure",
+        "unit": "Pa",
+        "description": "Pressure leaving the compressor",
+        "node": "stream_out"
+      },
+      {
+        "id": "power",
+        "label": "Shaft power",
+        "unit": "kW",
+        "description": "Power required to drive the compressor",
+        "node": "compressor"
+      },
+      {
+        "id": "temperature_rise",
+        "label": "Temperature rise",
+        "unit": "K",
+        "description": "Heat of compression",
+        "node": "compressor"
+      }
+    ]
+  }
+}
