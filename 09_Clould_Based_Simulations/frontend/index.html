@@ -26,6 +26,12 @@ header h1 span{color:var(--accent)}
 .hsep{flex:1}
 .status-pill{font-family:'Share Tech Mono',monospace;font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--text2);background:var(--bg3);display:flex;align-items:center;gap:6px}
 .sdot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s ease-in-out infinite}
+.status-pill.waking .sdot{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.status-pill.offline .sdot{background:var(--text3);box-shadow:none;animation:none}
+.status-pill.connecting .sdot{background:var(--text3);box-shadow:none}
+.host-note{margin-left:auto;font-size:11px;color:var(--text3)}
+.host-note a{color:var(--text2)}
+.demo-note{margin-bottom:12px;padding:8px 10px;border:1px solid var(--amber);border-radius:4px;font-size:11px;color:var(--amber);line-height:1.4}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 /* ── Main layout ── */
@@ -212,10 +218,11 @@ header h1 span{color:var(--accent)}
     <div class="logo-mark"><div class="logo-inner"></div></div>
     <h1>DWSIM <span>Cloud</span></h1>
     <div class="hsep"></div>
-    <div class="status-pill">
+    <div class="status-pill connecting" id="status-pill" title="">
       <div class="sdot"></div>
       <span id="api-status">connecting…</span>
     </div>
+    <div class="host-note">Solver: DWSIM in Docker on Render (free tier) · <a href="https://github.com/virajdesai0309/DWSim-Automation-Repo" target="_blank" rel="noopener">source</a></div>
   </header>
   <div class="main">
 
@@ -291,11 +298,17 @@ header h1 span{color:var(--accent)}
 </div>
 <div id="toast"></div>
 
+<script src="config.js"></script>
 <script>
 // ─────────────────────────────────────────────────────────────────
 // Config & State
 // ─────────────────────────────────────────────────────────────────
-const API = 'http://localhost:8001';
+// '' = same origin (page served by the backend). config.js overrides this
+// for the static GitHub Pages build.
+const API = (window.DWSIM_API ?? '').replace(/\/$/, '');
+
+// Demo mode: backend unreachable → serve recorded responses from ./demo/
+let demoMode = false;
 
 let models = [], activeModel = null, inputValues = {}, popupNode = null;
 
@@ -416,22 +429,111 @@ window.addEventListener('keydown', e => {
 // ─────────────────────────────────────────────────────────────────
 // Boot
 // ─────────────────────────────────────────────────────────────────
-async function boot() {
+// Live API path → recorded file under ./demo/
+function demoPath(path) {
+  if (path === '/models') return 'demo/models.json';
+  let m = path.match(/^\/models\/([^/]+)$/);
+  if (m) return `demo/models/${m[1]}.json`;
+  m = path.match(/^\/run\/([^/]+)$/);
+  if (m) return `demo/runs/${m[1]}.json`;
+  throw new Error('No recorded data for ' + path);
+}
+
+async function fetchTimeout(url, opts = {}, ms = 8000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ctl.signal }); }
+  finally { clearTimeout(t); }
+}
+
+// Returns a Response. Network failure on a live call flips the page to demo mode.
+async function api(path, opts = {}, ms = 8000) {
+  if (!demoMode) {
+    try { return await fetchTimeout(`${API}${path}`, opts, ms); }
+    catch (e) { enterDemoMode(); pollHealth(); }
+  }
+  return fetch(demoPath(path));
+}
+
+function setStatus(state, text, title = '') {
+  const pill = document.getElementById('status-pill');
+  pill.className = `status-pill ${state}`;
+  pill.title = title;
+  document.getElementById('api-status').textContent = text;
+}
+
+function enterDemoMode() {
+  if (demoMode) return;
+  demoMode = true;
+  setStatus('waking', 'Waking solver…', 'The free cloud instance sleeps when idle and takes up to ~3 min to start.');
+}
+
+async function checkHealth() {
   try {
-    const r = await fetch(`${API}/health`);
-    const d = await r.json();
-    document.getElementById('api-status').textContent =
-      `API online · ${d.models_loaded} model${d.models_loaded !== 1 ? 's' : ''}`;
+    const r = await fetchTimeout(`${API}/health`, {}, 5000);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+function showLive(d) {
+  demoMode = false;
+  const n = `${d.models_loaded} model${d.models_loaded !== 1 ? 's' : ''}`;
+  setStatus('', d.warm ? `Live · ${n}` : `Live · ${n} · warming up`);
+}
+
+// Keep trying the live backend for ~4 min after a failure, then give up.
+let polling = false;
+async function pollHealth() {
+  if (polling) return;
+  polling = true;
+  const deadline = Date.now() + 240000;
+  let wait = 3000;
+  while (Date.now() < deadline) {
+    await new Promise(res => setTimeout(res, wait));
+    const d = await checkHealth();
+    if (d) {
+      showLive(d);
+      toast('Live solver connected', 'success');
+      polling = false;
+      if (!d.warm) refreshWarm();
+      return;
+    }
+    wait = Math.min(wait * 1.5, 15000);
+  }
+  polling = false;
+  setStatus('offline', 'Offline · recorded results',
+    'The live solver is not reachable right now. Results shown are recorded runs of the same DWSIM model.');
+}
+
+// Update the badge once the backend finishes its warm-up solve.
+async function refreshWarm() {
+  for (let i = 0; i < 20; i++) {
+    await new Promise(res => setTimeout(res, 3000));
+    const d = await checkHealth();
+    if (!d) return;
+    if (d.warm) { showLive(d); return; }
+  }
+}
+
+async function boot() {
+  const d = await checkHealth();
+  if (d) {
+    showLive(d);
+    if (!d.warm) refreshWarm();
+  } else {
+    enterDemoMode();
+    pollHealth();
+  }
+  try {
     await loadModels();
-  } catch(e) {
-    document.getElementById('api-status').textContent = 'API offline';
-    document.querySelector('.sdot').style.cssText = 'background:var(--red);box-shadow:0 0 6px var(--red)';
-    toast('Cannot reach API at ' + API, 'error');
+  } catch (e) {
+    toast('Could not load the model library', 'error');
   }
 }
 
 async function loadModels() {
-  const r = await fetch(`${API}/models`);
+  const r = await api('/models');
   models = await r.json();
   renderModelTree();
 }
@@ -477,7 +579,7 @@ function renderModelTree() {
 async function selectModel(id) {
   document.querySelectorAll('.model-item').forEach(el => el.classList.toggle('active', el.dataset.id === id));
   try {
-    const r = await fetch(`${API}/models/${id}`);
+    const r = await api(`/models/${id}`);
     activeModel = await r.json();
     inputValues = {};
     activeModel.schema.inputs.forEach(f => { inputValues[f.id] = f.default ?? ''; });
@@ -724,19 +826,20 @@ document.getElementById('btn-simulate').addEventListener('click', async () => {
   btn.disabled = true; btn.classList.add('loading');
   btn.querySelector('span').textContent = 'Running…';
   try {
-    const r = await fetch(`${API}/run/${activeModel.meta.id}`, {
+    const r = await api(`/run/${activeModel.meta.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(inputValues)
-    });
+    }, 90000);
     const d = await r.json();
     if (!r.ok) {
       const errs = d.detail?.validation_errors || [d.detail || 'Unknown error'];
       toast('Validation: ' + errs.join(' | '), 'error'); return;
     }
-    renderResults(d);
+    const recorded = demoMode;
+    renderResults(d, recorded);
     updateFlowchartResults(d.outputs);
-    toast('Simulation complete ✓', 'success');
+    toast(recorded ? 'Showing recorded result' : 'Simulation complete ✓', recorded ? '' : 'success');
   } catch(e) {
     toast('Simulation failed: ' + e.message, 'error');
   } finally {
@@ -748,7 +851,7 @@ document.getElementById('btn-simulate').addEventListener('click', async () => {
 // ─────────────────────────────────────────────────────────────────
 // Results
 // ─────────────────────────────────────────────────────────────────
-function renderResults(data) {
+function renderResults(data, recorded = false) {
   const { schema } = activeModel;
   document.getElementById('rdot').classList.add('ready');
   const byNode = {};
@@ -758,6 +861,10 @@ function renderResults(data) {
     (byNode[key] = byNode[key] || []).push(f);
   });
   let html = '';
+  if (recorded) {
+    const ins = schema.inputs.map(f => `${f.label}: ${fmtVal(data.inputs[f.id])} ${f.unit}`).join('<br>');
+    html += `<div class="demo-note">Recorded result. The live solver is offline, so this is a saved DWSIM run for these inputs:<br>${ins}</div>`;
+  }
   Object.entries(byNode).forEach(([g, fields], gi) => {
     html += `<div class="result-group"><div class="result-group-title">${g}</div>
       ${fields.map((f, fi) => `

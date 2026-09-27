@@ -10,6 +10,12 @@
 
 This repository contains a collection of exercises related to unit operations automation using **DWSim** – a process simulation software that allows you to create and analyze chemical processes. The exercises demonstrate how to automate unit operations (mixing, separation, distillation, etc.) using DWSim, with code examples, tutorials, and documentation.
 
+## 🌐 Live demo
+
+Run a DWSIM simulation from your browser: **[DWSIM Cloud Simulation](https://virajdesai0309.github.io/DWSim-Automation-Repo/)**
+
+The solver runs headless DWSIM (.NET 8 + pythonnet) behind a FastAPI backend on Render's free tier. The free instance sleeps when idle, so the first run can take a minute or two while it wakes. If it can't be reached, the page shows recorded results from the same model. See [`09_Clould_Based_Simulations/`](09_Clould_Based_Simulations/dwsim_cloud_simulation.md#cloud-deployment-notes) for how it's deployed.
+
 > **✨ New:** The entire environment is now **containerised** using Docker. You can run the exercises on any machine (Windows or Linux) without installing DWSim or Python manually – everything is inside a reproducible, isolated container.
 
 ---

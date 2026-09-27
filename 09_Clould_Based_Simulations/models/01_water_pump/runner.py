@@ -66,7 +66,7 @@ def run(inputs: dict) -> dict:
         mass_flow_out   — kg/s
         temperature_out — K
         pressure_out    — Pa
-        power_consumed  — W
+        power_consumed  — kW (DWSIM DeltaQ)
     """
     Automation3, Settings, DotNetPath, Environment = _bootstrap_dwsim()
 

@@ -71,6 +71,9 @@ RUN mkdir -p /usr/local/lib/dwsim/"DWSIM Application Data" && \
 USER dwsimuser
 WORKDIR /home/dwsimuser
 
+# Adds Claude code into the container
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
 # Register the kernel for the dwsimuser (user-level, often better)
 RUN python3 -m ipykernel install --user --name dwsim-python --display-name "Python (DWSim)"
 

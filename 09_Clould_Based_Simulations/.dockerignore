@@ -1,0 +1,8 @@
+**/__pycache__
+**/*.pyc
+.ipynb_checkpoints
+apis/
+dwsim_automation_scripts/
+dwsim_model_files/
+scripts/
+*.md

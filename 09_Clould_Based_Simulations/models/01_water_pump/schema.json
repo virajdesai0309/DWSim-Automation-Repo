@@ -81,7 +81,7 @@
     {
       "id": "power_consumed",
       "label": "Shaft power consumed",
-      "unit": "W",
+      "unit": "kW",
       "description": "Mechanical power required to drive the pump",
       "node": "pump"
     }

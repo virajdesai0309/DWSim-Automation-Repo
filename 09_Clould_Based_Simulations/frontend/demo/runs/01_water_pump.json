@@ -1,0 +1,17 @@
+{
+  "model_id": "01_water_pump",
+  "inputs": {
+    "mass_flow": 1.0,
+    "temperature": 300.0,
+    "pressure": 101325.0,
+    "outlet_pressure": 301325.0
+  },
+  "outputs": {
+    "mass_flow_out": 1.0,
+    "temperature_out": 300.02,
+    "pressure_out": 301325.0,
+    "power_consumed": 0.2676,
+    "_solver_errors": 0
+  },
+  "duration_ms": 2682.0
+}

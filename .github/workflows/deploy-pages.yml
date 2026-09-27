@@ -1,0 +1,45 @@
+# Publishes the static frontend (with recorded demo results) to GitHub Pages.
+# One-time setup: Settings → Pages → Source: "GitHub Actions".
+# Uses repo variable BACKEND_URL (e.g. https://dwsim-cloud-sim.onrender.com) to point at
+# the live backend. Without it the page is served with recorded demo results only.
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["09_Clould_Based_Simulations/frontend/**", ".github/workflows/deploy-pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build site
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          mkdir -p _site
+          cp -r 09_Clould_Based_Simulations/frontend/. _site/
+          if [ -n "$BACKEND_URL" ]; then
+            echo "window.DWSIM_API = '${BACKEND_URL%/}';" > _site/config.js
+          fi
+          cat _site/config.js
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+      - id: deployment
+        uses: actions/deploy-pages@v4

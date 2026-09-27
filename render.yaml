@@ -1,0 +1,27 @@
+# Render Blueprint for the DWSIM cloud simulation backend (free tier, no card).
+# One-time setup: render.com → New → Blueprint → pick this repo.
+# The frontend stays on GitHub Pages; set repo variable BACKEND_URL to this
+# service's https://<name>.onrender.com URL so the Pages build points at it.
+services:
+  - type: web
+    name: dwsim-cloud-sim
+    runtime: docker
+    plan: free            # 0.1 CPU, 512 MB, sleeps after 15 min idle
+    region: frankfurt
+    dockerfilePath: ./09_Clould_Based_Simulations/Dockerfile
+    dockerContext: ./09_Clould_Based_Simulations
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - 09_Clould_Based_Simulations/**
+      ignoredPaths:
+        - 09_Clould_Based_Simulations/**/*.md
+        - 09_Clould_Based_Simulations/scripts/**
+        - 09_Clould_Based_Simulations/dwsim_automation_scripts/**
+        - 09_Clould_Based_Simulations/dwsim_model_files/**
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://virajdesai0309.github.io
+      - key: WARMUP
+        value: "1"

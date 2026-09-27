@@ -4,12 +4,15 @@ All routes are generic. Adding a new model never requires editing this file.
 """
 
 import logging
+import os
+import secrets
+import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -29,6 +32,31 @@ logger = logging.getLogger(__name__)
 # ── App lifecycle ───────────────────────────────────────────────────────────────
 
 REGISTRY: dict = {}
+RUNNERS: dict = {}          # model_id -> run() callable, loaded once per registry scan
+SIM_LOCK = threading.Lock() # DWSIM is not known to be thread-safe: one solve at a time
+WARM = threading.Event()    # set once the startup warm-up solves have finished
+
+
+def _get_runner(model_id: str):
+    if model_id not in RUNNERS:
+        RUNNERS[model_id] = load_runner(model_id, REGISTRY)
+    return RUNNERS[model_id]
+
+
+def _warm_up():
+    """
+    Solve each model once with its schema defaults so the first visitor
+    doesn't pay the .NET/DWSIM startup cost (~5–8 s).
+    """
+    for model_id, entry in list(REGISTRY.items()):
+        defaults = {f["id"]: f.get("default") for f in entry["schema"]["inputs"]}
+        try:
+            with SIM_LOCK:
+                _get_runner(model_id)(_coerce_inputs(defaults, entry["schema"]["inputs"]))
+            logger.info(f"Warm-up solve done: {model_id}")
+        except Exception:
+            logger.exception(f"Warm-up failed for '{model_id}'")
+    WARM.set()
 
 
 @asynccontextmanager
@@ -36,6 +64,10 @@ async def lifespan(app: FastAPI):
     global REGISTRY
     logger.info("Scanning models directory…")
     REGISTRY = discover_models()
+    if os.environ.get("WARMUP", "1") == "1":
+        threading.Thread(target=_warm_up, name="dwsim-warmup", daemon=True).start()
+    else:
+        WARM.set()
     yield
     logger.info("Shutting down.")
 
@@ -48,12 +80,14 @@ app = FastAPI(
 )
 
 
-# ── CORS (allow all origins for local dev; restrict in production) ──────────────
+# ── CORS (ALLOWED_ORIGINS="https://a.com,https://b.com"; defaults to * for local dev)
+
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -76,6 +110,7 @@ def health():
     return {
         "status": "ok",
         "models_loaded": len(REGISTRY),
+        "warm": WARM.is_set(),
     }
 
 
@@ -145,7 +180,7 @@ def run_simulation(model_id: str, inputs: dict[str, Any]):
 
     # Load and call the runner
     try:
-        runner = load_runner(model_id, REGISTRY)
+        runner = _get_runner(model_id)
     except (RuntimeError, ValueError) as e:
         logger.error(f"Runner load failed for '{model_id}': {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -154,7 +189,8 @@ def run_simulation(model_id: str, inputs: dict[str, Any]):
     start = time.perf_counter()
 
     try:
-        result = runner(coerced)
+        with SIM_LOCK:
+            result = runner(coerced)
     except Exception as e:
         logger.exception(f"Simulation failed: {model_id}")
         raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
@@ -171,15 +207,22 @@ def run_simulation(model_id: str, inputs: dict[str, Any]):
 
 
 # ── Reload registry without restart (dev convenience) ──────────────────────────
+# Disabled unless ADMIN_TOKEN is set; then requires a matching X-Admin-Token header.
 
-@app.post("/admin/reload", tags=["system"])
-def reload_registry():
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+
+
+@app.post("/admin/reload", tags=["system"], include_in_schema=bool(ADMIN_TOKEN))
+def reload_registry(x_admin_token: str = Header(default="")):
     """
     Re-scans the /models directory and refreshes the registry.
     Useful during development when adding new models without restarting.
     """
+    if not ADMIN_TOKEN or not secrets.compare_digest(x_admin_token, ADMIN_TOKEN):
+        raise HTTPException(status_code=404, detail="Not Found")
     global REGISTRY
     REGISTRY = discover_models()
+    RUNNERS.clear()
     return {"status": "reloaded", "models_loaded": len(REGISTRY)}
 
 
