@@ -28,12 +28,14 @@ RUN apt-get update && apt-get install -y \
     cmake \
     && ln -s /usr/lib/libgdiplus.so /usr/lib/gdiplus.dll
 
-# 2. Add Microsoft repository for .NET and install .NET runtime
-RUN wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
-    && dpkg -i packages-microsoft-prod.deb \
-    && rm packages-microsoft-prod.deb \
-    && apt-get update \
-    && apt-get install -y dotnet-sdk-8.0 aspnetcore-runtime-8.0
+# 2. .NET 10 SDK (includes the runtime). DWSIM 10 targets net10.0, and pythonnet
+#    needs a shared .NET 10 runtime to host its assemblies.
+RUN apt-get install -y libicu70 \
+    && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+    && bash /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
+    && ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet \
+    && rm /tmp/dotnet-install.sh
+ENV DOTNET_ROOT=/usr/share/dotnet
 
 # Set environment variables for .NET
 ENV DOTNET_SYSTEM_DRAWING_USE_GDIPLUS=1
@@ -47,13 +49,22 @@ RUN python3 -m pip install -r requirements.txt
 # This will place the extensions in /root/.idaes
 RUN idaes get-extensions
 
-# Download and install DWSIM v9.0.4 for Debian/Ubuntu
-RUN wget https://github.com/DanWBR/dwsim6/releases/download/v9.0.4/dwsim_9.0.4-amd64.deb \
-    && gdebi -n dwsim_9.0.4-amd64.deb \
-    && rm dwsim_9.0.4-amd64.deb
+# DWSIM 10: the GUI (/opt/dwsim, `dwsim` command) and the headless MCP server
+# (/opt/dwsim-mcp, `dwsim-mcp` command). /opt/dwsim-mcp also holds the
+# automation assemblies (Automation3) that the Python scripts load.
+# Both packages bundle their own .NET runtime.
+ARG DWSIM_VERSION=10.2.10
+RUN wget -q https://github.com/DanWBR/dwsim10/releases/download/v${DWSIM_VERSION}/dwsim_${DWSIM_VERSION}_amd64.deb -O /tmp/dwsim.deb \
+    && gdebi -n /tmp/dwsim.deb && rm /tmp/dwsim.deb
 
-# Create symbolic links for missing assemblies
-RUN find /usr/share/dotnet -name "System.Drawing.Common.dll" -exec ln -s {} /usr/local/lib/dwsim/ \;
+# The 10.2.10 dwsim-mcp .deb ships an unquoted DWSIM_MCP_OPTS line that its own
+# postinst sources under `set -e` (exit 127), so unpack, quote the value, then configure.
+RUN wget -q https://github.com/DanWBR/dwsim10/releases/download/v${DWSIM_VERSION}/dwsim-mcp_${DWSIM_VERSION}_amd64.deb -O /tmp/dwsim-mcp.deb \
+    && dpkg --unpack /tmp/dwsim-mcp.deb \
+    && sed -i -E 's/^DWSIM_MCP_OPTS=([^"].*)$/DWSIM_MCP_OPTS="\1"/' /etc/dwsim-mcp/dwsim-mcp.conf* \
+    && dpkg --configure dwsim-mcp \
+    && rm /tmp/dwsim-mcp.deb
+ENV DWSIM_PATH=/opt/dwsim-mcp/
 
 # Create a non-root user for security
 RUN useradd -m -s /bin/bash dwsimuser && \
@@ -63,10 +74,6 @@ RUN useradd -m -s /bin/bash dwsimuser && \
 RUN mkdir -p /home/dwsimuser/.idaes && \
     cp -r /root/.idaes/* /home/dwsimuser/.idaes/ && \
     chown -R dwsimuser:dwsimuser /home/dwsimuser/.idaes
-
-# Fix permission: allow the newly created dwsimuser to write to DWSim's application data directory
-RUN mkdir -p /usr/local/lib/dwsim/"DWSIM Application Data" && \
-    chown -R dwsimuser:dwsimuser /usr/local/lib/dwsim/"DWSIM Application Data"
 
 USER dwsimuser
 WORKDIR /home/dwsimuser

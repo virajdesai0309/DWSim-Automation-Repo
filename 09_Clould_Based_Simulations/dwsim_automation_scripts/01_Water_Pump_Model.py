@@ -22,7 +22,7 @@ except Exception as e:
     use_dotnet_dir = False
 
 # Define DWSIM path
-dwsimpath = "/usr/local/lib/dwsim/"
+dwsimpath = "/opt/dwsim-mcp/"
 
 # Set working directory
 if use_dotnet_dir:
@@ -40,7 +40,6 @@ clr.AddReference(dwsimpath + "DWSIM.Thermodynamics.dll")
 clr.AddReference(dwsimpath + "DWSIM.UnitOperations.dll")
 clr.AddReference(dwsimpath + "DWSIM.Inspector.dll")
 clr.AddReference(dwsimpath + "System.Buffers.dll")
-clr.AddReference(dwsimpath + "DWSIM.Thermodynamics.ThermoC.dll")
 
 # Now import DWSIM types
 from DWSIM.Interfaces.Enums.GraphicObjects import ObjectType

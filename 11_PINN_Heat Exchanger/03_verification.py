@@ -58,7 +58,7 @@ from pythonnet import load
 load("coreclr")
 
 from System.IO import Directory
-DWSIM_PATH = "/usr/local/lib/dwsim/"
+DWSIM_PATH = "/opt/dwsim-mcp/"
 Directory.SetCurrentDirectory(DWSIM_PATH)
 
 for dll in [
@@ -66,7 +66,6 @@ for dll in [
     "DWSIM.GlobalSettings.dll", "DWSIM.SharedClasses.dll",
     "DWSIM.Thermodynamics.dll", "DWSIM.UnitOperations.dll",
     "DWSIM.Inspector.dll", "System.Buffers.dll",
-    "DWSIM.Thermodynamics.ThermoC.dll",
 ]:
     clr.AddReference(DWSIM_PATH + dll)
 

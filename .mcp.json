@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "dwsim": {
+      "type": "stdio",
+      "command": "dwsim-mcp",
+      "args": []
+    }
+  }
+}

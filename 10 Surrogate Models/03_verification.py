@@ -117,14 +117,13 @@ from pythonnet import load as _load
 _load("coreclr")
 
 from System.IO import Directory
-DWSIM_PATH = "/usr/local/lib/dwsim/"
+DWSIM_PATH = "/opt/dwsim-mcp/"
 Directory.SetCurrentDirectory(DWSIM_PATH)
 
 for dll in ["CapeOpen.dll", "DWSIM.Automation.dll", "DWSIM.Interfaces.dll",
             "DWSIM.GlobalSettings.dll", "DWSIM.SharedClasses.dll",
             "DWSIM.Thermodynamics.dll", "DWSIM.UnitOperations.dll",
-            "DWSIM.Inspector.dll", "System.Buffers.dll",
-            "DWSIM.Thermodynamics.ThermoC.dll"]:
+            "DWSIM.Inspector.dll", "System.Buffers.dll"]:
     clr.AddReference(DWSIM_PATH + dll)
 
 from DWSIM.Automation import Automation3

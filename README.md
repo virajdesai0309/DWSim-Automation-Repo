@@ -14,7 +14,20 @@ This repository contains a collection of exercises related to unit operations au
 
 Run a pump, heat exchanger, gas compressor or shortcut distillation column in DWSIM from your browser: **[DWSIM Cloud Simulation](https://virajdesai0309.github.io/DWSim-Automation-Repo/)**
 
-The solver runs headless DWSIM (.NET 8 + pythonnet) behind a FastAPI backend on Render's free tier. The free instance sleeps when idle, so the first run can take a minute or two while it wakes. If it can't be reached, the page shows recorded results from the same model. See [`09_Clould_Based_Simulations/`](09_Clould_Based_Simulations/dwsim_cloud_simulation.md#cloud-deployment-notes) for how it's deployed.
+The solver runs headless DWSIM 10 (.NET 10 + pythonnet) behind a FastAPI backend on Render's free tier. The free instance sleeps when idle, so the first run can take a minute or two while it wakes. If it can't be reached, the page shows recorded results from the same model. See [`09_Clould_Based_Simulations/`](09_Clould_Based_Simulations/dwsim_cloud_simulation.md#cloud-deployment-notes) for how it's deployed.
+
+## 🧠 Build flowsheets by asking Claude Code
+
+The dev container ships DWSIM 10's official headless **MCP server** (`dwsim-mcp`), and the repo registers it for [Claude Code](https://claude.com/claude-code) in [`.mcp.json`](.mcp.json). Start `claude` in the repo and describe the process:
+
+```text
+> build me a flowsheet where two water streams are mixed and then pumped to a heat exchanger
+```
+
+Claude plans the blocks, **asks for any specs you didn't give** (feed conditions, pump outlet pressure, the exchanger's other side), then builds the flowsheet from scratch through the server's tools. It checks degrees of freedom, solves, sanity-checks the mass balance and reports a stream table. It saves the flowsheet to `flowsheets/<name>.dwxmz` (opens in the DWSIM GUI) with a PNG of the diagram. The workflow and the DWSIM 10 gotchas it follows are in [`.claude/skills/build-flowsheet/SKILL.md`](.claude/skills/build-flowsheet/SKILL.md).
+
+- First run: Claude Code asks you to approve the project's `dwsim` MCP server. `/mcp` shows its status and its 53 tools.
+- Outside the container: install `dwsim-mcp_<version>_amd64.deb` from the [DWSIM 10 releases](https://github.com/DanWBR/dwsim10/releases). It bundles its own .NET, and its systemd service is only needed for HTTP mode; Claude Code starts it over stdio by itself.
 
 > **✨ New:** The entire environment is now **containerised** using Docker. You can run the exercises on any machine (Windows or Linux) without installing DWSim or Python manually – everything is inside a reproducible, isolated container.
 

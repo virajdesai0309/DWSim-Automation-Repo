@@ -13,7 +13,7 @@ from System.IO import Directory, Path, File
 from System import String, Environment
 from System import Array
 
-dwsimpath = "/usr/local/lib/dwsim/"
+dwsimpath = "/opt/dwsim-mcp/"
 
 clr.AddReference(dwsimpath + "CapeOpen.dll")
 clr.AddReference(dwsimpath + "DWSIM.Automation.dll")
@@ -24,7 +24,6 @@ clr.AddReference(dwsimpath + "DWSIM.Thermodynamics.dll")
 clr.AddReference(dwsimpath + "DWSIM.UnitOperations.dll")
 clr.AddReference(dwsimpath + "DWSIM.Inspector.dll")
 clr.AddReference(dwsimpath + "System.Buffers.dll")
-clr.AddReference(dwsimpath + "DWSIM.Thermodynamics.ThermoC.dll")
 
 from DWSIM.Interfaces.Enums.GraphicObjects import ObjectType
 from DWSIM.Thermodynamics import Streams, PropertyPackages
